@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PSA AI Operations Co-pilot</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            /* PSA Brand Colors */
+            --psa-red: #D9242B;
+            --psa-red-dark: #B71C1C;
+            --psa-red-light: #FF5252;
+            
+            /* Dark Theme Colors */
+            --bg-primary: #0A0A0A;
+            --bg-secondary: #1A1A1A;
+            --bg-tertiary: #2A2A2A;
+            --bg-card: #1E1E1E;
+            --bg-hover: #333333;
+            
+            /* Text Colors */
+            --text-primary: #FFFFFF;
+            --text-secondary: #B0B0B0;
+            --text-muted: #808080;
+            --text-accent: #D9242B;
+            
+            /* Border Colors */
+            --border-primary: #333333;
+            --border-secondary: #444444;
+            --border-accent: #D9242B;
+            
+            /* Status Colors */
+            --success: #00C851;
+            --warning: #FF8800;
+            --error: #FF4444;
+            --info: #33B5E5;
+            
+            /* Shadows */
+            --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+            --shadow-glow: 0 0 20px rgba(217, 36, 43, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+            border-bottom: 1px solid var(--border-primary);
+            padding: 20px 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .logo {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--psa-red) 0%, var(--psa-red-dark) 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 800;
+            font-size: 20px;
+            box-shadow: var(--shadow-glow);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .logo::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transform: rotate(45deg);
+            animation: shimmer 3s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+        }
+
+        .brand-info h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .brand-info p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--bg-card);
+            border-radius: 20px;
+            border: 1px solid var(--border-primary);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Main Layout */
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 24px;
+            min-height: calc(100vh - 100px);
+        }
+
+        /* Panel Base Styles */
+        .panel {
+            background: var(--bg-card);
+            border-radius: 16px;
+            border: 1px solid var(--border-primary);
+            overflow: hidden;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .panel:hover {
+            border-color: var(--border-secondary);
+            box-shadow: var(--shadow-md);
+        }
+
+        .panel-header {
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+            padding: 24px;
+            border-bottom: 1px solid var(--border-primary);
+            position: relative;
+        }
+
+        .panel-header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--psa-red), var(--psa-red-light));
+        }
+
+        .panel-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .panel-icon {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--psa-red);
+            border-radius: 6px;
+            color: white;
+            font-size: 12px;
+        }
+
+        .panel-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .panel-content {
+            padding: 24px;
+        }
+
+        /* Input Panel */
+        .alert-textarea {
+            width: 100%;
+            height: 400px;
+            background: var(--bg-primary);
+            border: 2px solid var(--border-primary);
+            border-radius: 12px;
+            padding: 20px;
+            color: var(--text-primary);
+            font-size: 14px;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+            line-height: 1.6;
+            resize: vertical;
+            transition: all 0.3s ease;
+            min-height: 300px;
+        }
+
+        .alert-textarea:focus {
+            outline: none;
+            border-color: var(--psa-red);
+            box-shadow: 0 0 0 4px rgba(217, 36, 43, 0.1);
+            background: var(--bg-secondary);
+        }
+
+        .alert-textarea::placeholder {
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .process-button {
+            width: 100%;
+            background: linear-gradient(135deg, var(--psa-red) 0%, var(--psa-red-dark) 100%);
+            color: white;
+            border: none;
+            padding: 16px 24px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .process-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .process-button:hover::before {
+            left: 100%;
+        }
+
+        .process-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .process-button:active {
+            transform: translateY(0);
+        }
+
+        .process-button:disabled {
+            background: var(--bg-hover);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .button-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Process Panel */
+        .timeline {
+            position: relative;
+            padding-left: 40px;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 20px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(180deg, var(--psa-red), var(--border-primary));
+        }
+
+        .timeline-step {
+            position: relative;
+            margin-bottom: 32px;
+            opacity: 0;
+            transform: translateX(-30px);
+            transition: all 0.6s ease;
+        }
+
+        .timeline-step.visible {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .timeline-step::before {
+            content: '';
+            position: absolute;
+            left: -28px;
+            top: 12px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--border-primary);
+            border: 3px solid var(--bg-card);
+            transition: all 0.3s ease;
+            z-index: 2;
+        }
+
+        .timeline-step.active::before {
+            background: var(--psa-red);
+            box-shadow: 0 0 0 4px rgba(217, 36, 43, 0.3);
+            animation: pulse 2s infinite;
+        }
+
+        .timeline-step.completed::before {
+            background: var(--success);
+            content: '✓';
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: white;
+            font-weight: bold;
+        }
+
+        .step-card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid var(--border-primary);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .step-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--border-primary);
+            transition: all 0.3s ease;
+        }
+
+        .timeline-step.active .step-card {
+            border-color: var(--psa-red);
+            box-shadow: 0 4px 20px rgba(217, 36, 43, 0.1);
+        }
+
+        .timeline-step.active .step-card::before {
+            background: var(--psa-red);
+        }
+
+        .timeline-step.completed .step-card {
+            border-color: var(--success);
+            background: rgba(0, 200, 81, 0.05);
+        }
+
+        .timeline-step.completed .step-card::before {
+            background: var(--success);
+        }
+
+        .step-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .step-icon {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            font-size: 16px;
+            color: white;
+            font-weight: 600;
+        }
+
+        .step-icon.search { background: linear-gradient(135deg, #3498db, #2980b9); }
+        .step-icon.database { background: linear-gradient(135deg, #9b59b6, #8e44ad); }
+        .step-icon.brain { background: linear-gradient(135deg, #e67e22, #d35400); }
+        .step-icon.email { background: linear-gradient(135deg, #e74c3c, #c0392b); }
+
+        .step-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .step-message {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .step-details {
+            margin-top: 16px;
+            padding: 16px;
+            background: var(--bg-primary);
+            border-radius: 8px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-primary);
+        }
+
+        .sop-candidate {
+            background: var(--bg-tertiary);
+            padding: 16px;
+            border-radius: 8px;
+            margin: 12px 0;
+            border-left: 4px solid var(--psa-red);
+            transition: all 0.3s ease;
+        }
+
+        .sop-candidate:hover {
+            background: var(--bg-hover);
+            transform: translateX(4px);
+        }
+
+        .sop-title {
+            font-weight: 600;
+            color: var(--psa-red);
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .sop-score {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* Results Panel */
+        .result-card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-primary);
+            transition: all 0.3s ease;
+        }
+
+        .result-card:hover {
+            border-color: var(--border-secondary);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .result-card h3 {
+            color: var(--psa-red);
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .result-item {
+            margin-bottom: 16px;
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-primary);
+        }
+
+        .result-item:last-child {
+            border-bottom: none;
+        }
+
+        .result-label {
+            font-weight: 600;
+            color: var(--text-secondary);
+            min-width: 120px;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .result-value {
+            color: var(--text-primary);
+            font-size: 14px;
+            line-height: 1.6;
+            flex: 1;
+        }
+
+        .email-draft {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            padding: 20px;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            color: var(--text-secondary);
+            max-height: 400px;
+            overflow-y: auto;
+            margin: 16px 0;
+        }
+
+        .send-email-button {
+            width: 100%;
+            background: linear-gradient(135deg, var(--psa-red) 0%, var(--psa-red-dark) 100%);
+            color: white;
+            border: none;
+            padding: 16px 24px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .send-email-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .send-email-button:hover::before {
+            left: 100%;
+        }
+
+        .send-email-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .send-email-button:disabled {
+            background: var(--bg-hover);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .success-message {
+            background: linear-gradient(135deg, var(--success), #00A041);
+            color: white;
+            padding: 16px 20px;
+            border-radius: 8px;
+            margin-top: 16px;
+            font-weight: 600;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+
+        .error-message {
+            background: linear-gradient(135deg, var(--error), #CC0000);
+            color: white;
+            padding: 16px 20px;
+            border-radius: 8px;
+            margin-top: 16px;
+            font-weight: 600;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Loading States */
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--border-primary);
+            border-radius: 50%;
+            border-top-color: var(--psa-red);
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+            .main-container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .panel {
+                min-height: 400px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                padding: 0 16px;
+            }
+            
+            .main-container {
+                padding: 16px;
+            }
+            
+            .panel-content {
+                padding: 16px;
+            }
+        }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-secondary);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--psa-red);
+        }
+
+        /* Animations */
+        .fade-in {
+            animation: fadeIn 0.6s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Alert Input Placeholder Styling */
+        .alert-textarea::placeholder {
+            color: var(--text-muted);
+            font-style: italic;
+            line-height: 1.8;
+        }
+
+        /* Enhanced Focus States */
+        .alert-textarea:focus {
+            border-color: var(--psa-red);
+            box-shadow: 0 0 0 4px rgba(217, 36, 43, 0.1);
+            background: var(--bg-secondary);
+        }
+
+        /* Status Badges */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-badge.success {
+            background: rgba(0, 200, 81, 0.1);
+            color: var(--success);
+            border: 1px solid var(--success);
+        }
+
+        .status-badge.warning {
+            background: rgba(255, 136, 0, 0.1);
+            color: var(--warning);
+            border: 1px solid var(--warning);
+        }
+
+        .status-badge.error {
+            background: rgba(255, 68, 68, 0.1);
+            color: var(--error);
+            border: 1px solid var(--error);
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-content">
+            <div class="logo-section">
+                <div class="logo">PSA</div>
+                <div class="brand-info">
+                    <h1>AI Operations Co-pilot</h1>
+                    <p>Multi-Agent RAG System for Port Operations</p>
+                </div>
+            </div>
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span>System Online</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Left Panel - Input -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <div class="panel-icon"><i class="fas fa-edit"></i></div>
+                    Alert Input
+                </div>
+                <div class="panel-subtitle">Paste your PSA alert text below for intelligent analysis</div>
+            </div>
+            <div class="panel-content">
+                <textarea 
+                    id="alertInput" 
+                    class="alert-textarea" 
+                    placeholder="🚨 PSA Alert Input
+
+📧 Email Alert Example:
+RE: Email ALR-861600 | CMAU0000020 - Duplicate Container information received
+Hi Jen, Please assist in checking container CMAU0000020. Customer on PORTNET is seeing 2 identical containers information.
+
+📱 SMS Alert Example:
+Alert: SMS INC-154599
+Issue: EDI message REF-IFT-0007 stuck in ERROR status (Sender: LINE-PSA, Recipient: PSA-TOS, State: No acknowledgment sent, ack_at is NULL).
+
+📞 Call Escalation Example:
+Alert: Call TCK-742311
+Issue: Vessel MV PACIFIC DAWN/07E exception at Pasir Panjang Terminal 4
+Details: BAPLIE inconsistency for MV PACIFIC DAWN/07E: COARRI shows load completed for bay 14, but BAPLIE still lists units in those slots.
+
+💡 Tip: Use Ctrl+Enter to quickly process alerts"
+                ></textarea>
+                <button id="processBtn" class="process-button" onclick="processAlert()">
+                    <span id="buttonText"><i class="fas fa-rocket"></i> Process Alert</span>
+                    <span id="buttonSpinner" class="button-spinner" style="display: none;"></span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Center Panel - Agent Process -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <div class="panel-icon"><i class="fas fa-brain"></i></div>
+                    Agent Process
+                </div>
+                <div class="panel-subtitle">Real-time multi-agent analysis and decision making</div>
+            </div>
+            <div class="panel-content">
+                <div class="timeline" id="timeline">
+                    <!-- Timeline steps will be dynamically added here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel - Results -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <div class="panel-icon"><i class="fas fa-chart-line"></i></div>
+                    Results & Actions
+                </div>
+                <div class="panel-subtitle">Analysis output and escalation management</div>
+            </div>
+            <div class="panel-content" id="resultsContent">
+                <div class="result-card">
+                    <h3><i class="fas fa-info-circle"></i> Analysis Results</h3>
+                    <div class="result-item">
+                        <span class="result-label">Status:</span>
+                        <span class="result-value">Ready to process alert</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 0;
+        let emailData = null;
+
+        // Define timeline steps
+        const timelineSteps = [
+            {
+                id: 'triage',
+                icon: 'search',
+                title: 'Triage Agent',
+                message: 'Waiting for alert input...',
+                details: ''
+            },
+            {
+                id: 'retrieval',
+                icon: 'database',
+                title: 'Retrieval Engine',
+                message: 'Waiting for triage completion...',
+                details: ''
+            },
+            {
+                id: 'analysis',
+                icon: 'brain',
+                title: 'Analyst Agent',
+                message: 'Waiting for candidate SOPs...',
+                details: ''
+            },
+            {
+                id: 'email',
+                icon: 'email',
+                title: 'Email Generation',
+                message: 'Waiting for analysis completion...',
+                details: ''
+            }
+        ];
+
+        // Initialize timeline
+        function initializeTimeline() {
+            const timeline = document.getElementById('timeline');
+            timeline.innerHTML = '';
+            
+            timelineSteps.forEach((step, index) => {
+                const stepElement = document.createElement('div');
+                stepElement.className = 'timeline-step';
+                stepElement.id = `step-${step.id}`;
+                stepElement.innerHTML = `
+                    <div class="step-card">
+                        <div class="step-header">
+                            <div class="step-icon ${step.icon}">${getIcon(step.icon)}</div>
+                            <div class="step-title">${step.title}</div>
+                        </div>
+                        <div class="step-message">${step.message}</div>
+                        <div class="step-details" style="display: none;"></div>
+                    </div>
+                `;
+                timeline.appendChild(stepElement);
+            });
+        }
+
+        function getIcon(iconType) {
+            const icons = {
+                search: '🔍',
+                database: '🗄️',
+                brain: '🧠',
+                email: '📧'
+            };
+            return icons[iconType] || '●';
+        }
+
+        async function processAlert() {
+            const alertText = document.getElementById('alertInput').value.trim();
+            
+            if (!alertText) {
+                showError('Please enter alert text before processing.');
+                return;
+            }
+
+            // Reset UI state
+            resetProcessSteps();
+            showLoadingState();
+            clearResults();
+
+            try {
+                // Step 1: Triage Agent
+                updateStep('triage', 'Triage Agent', 'Parsing alert text and extracting entities...', true);
+                
+                const response = await fetch('/process_alert', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ alert_text: alertText })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    showError(data.error);
+                    return;
+                }
+
+                // Update steps based on response
+                updateStep('triage', 'Triage Agent', 'Alert parsed successfully', false, true);
+                showStepDetails('triage', `Module: ${data.parsed_entities.module}<br>Entities: ${data.parsed_entities.entities.join(', ')}`);
+                
+                // Step 2: Retrieval
+                updateStep('retrieval', 'Retrieval Engine', 'Retrieving candidate SOPs...', true);
+                setTimeout(() => {
+                    updateStep('retrieval', 'Retrieval Engine', `Found ${data.candidate_sops.length} candidate SOPs`, false, true);
+                    displayCandidateSOPs(data.candidate_sops);
+                }, 1000);
+
+                // Step 3: Analysis
+                updateStep('analysis', 'Analyst Agent', 'Analyzing candidates with AI...', true);
+                setTimeout(() => {
+                    updateStep('analysis', 'Analyst Agent', 'Analysis completed', false, true);
+                    showStepDetails('analysis', `Best SOP: ${data.analysis.best_sop_id}<br>Reasoning: ${data.analysis.reasoning.substring(0, 100)}...`);
+                }, 2000);
+
+                // Step 4: Email Generation
+                updateStep('email', 'Email Generation', 'Generating escalation email...', true);
+                setTimeout(() => {
+                    updateStep('email', 'Email Generation', 'Email draft ready', false, true);
+                    displayResults(data);
+                }, 1000);
+
+            } catch (error) {
+                showError('Network error: ' + error.message);
+            } finally {
+                hideLoadingState();
+            }
+        }
+
+        function resetProcessSteps() {
+            const steps = document.querySelectorAll('.timeline-step');
+            steps.forEach(step => {
+                step.classList.remove('active', 'completed', 'visible');
+                step.style.opacity = '0';
+                step.style.transform = 'translateX(-30px)';
+            });
+            currentStep = 0;
+        }
+
+        function updateStep(stepId, title, message, isActive, isCompleted) {
+            const step = document.getElementById(`step-${stepId}`);
+            const titleElement = step.querySelector('.step-title');
+            const messageElement = step.querySelector('.step-message');
+            
+            titleElement.textContent = title;
+            messageElement.textContent = message;
+            
+            step.classList.remove('active', 'completed');
+            if (isActive) {
+                step.classList.add('active');
+            } else if (isCompleted) {
+                step.classList.add('completed');
+            }
+            
+            // Show step with animation
+            if (!step.classList.contains('visible')) {
+                step.classList.add('visible');
+            }
+        }
+
+        function showStepDetails(stepId, details) {
+            const step = document.getElementById(`step-${stepId}`);
+            const detailsElement = step.querySelector('.step-details');
+            detailsElement.innerHTML = details;
+            detailsElement.style.display = 'block';
+        }
+
+        function displayCandidateSOPs(candidateSOPs) {
+            let html = `Found ${candidateSOPs.length} candidate SOPs:<br><br>`;
+            candidateSOPs.forEach((sop, index) => {
+                const score = ((1 - sop.distance) * 100).toFixed(1);
+                html += `
+                    <div class="sop-candidate">
+                        <div class="sop-title">${sop.metadata.title}</div>
+                        <div class="sop-score">Relevance: ${score}% | Module: ${sop.metadata.module}</div>
+                    </div>
+                `;
+            });
+            
+            showStepDetails('retrieval', html);
+        }
+
+        function displayResults(data) {
+            const resultsContent = document.getElementById('resultsContent');
+            
+            const html = `
+                <div class="result-card fade-in">
+                    <h3><i class="fas fa-search"></i> Parsed Entities</h3>
+                    <div class="result-item">
+                        <span class="result-label">Module:</span>
+                        <span class="result-value">${data.parsed_entities.module}</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Alert Type:</span>
+                        <span class="result-value">${data.parsed_entities.alert_type}</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Severity:</span>
+                        <span class="result-value">${data.parsed_entities.severity}</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Urgency:</span>
+                        <span class="result-value">${data.parsed_entities.urgency}</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Entities:</span>
+                        <span class="result-value">${data.parsed_entities.entities.join(', ')}</span>
+                    </div>
+                </div>
+
+                <div class="result-card fade-in">
+                    <h3><i class="fas fa-brain"></i> AI Analysis</h3>
+                    <div class="result-item">
+                        <span class="result-label">Best SOP:</span>
+                        <span class="result-value">${data.analysis.best_sop_id}</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Reasoning:</span>
+                        <span class="result-value">${data.analysis.reasoning}</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Problem:</span>
+                        <span class="result-value">${data.analysis.problem_statement}</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Resolution:</span>
+                        <span class="result-value">${data.analysis.resolution_summary}</span>
+                    </div>
+                </div>
+
+                <div class="result-card fade-in">
+                    <h3><i class="fas fa-envelope"></i> Escalation Email</h3>
+                    <div class="result-item">
+                        <span class="result-label">To:</span>
+                        <span class="result-value">${data.email_content.to}</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Subject:</span>
+                        <span class="result-value">${data.email_content.subject}</span>
+                    </div>
+                    <div class="email-draft">${data.email_content.body}</div>
+                    <button class="send-email-button" onclick="sendEscalationEmail()">
+                        <i class="fas fa-paper-plane"></i> Confirm & Send Escalation Email
+                    </button>
+                    <div class="success-message" id="successMessage"></div>
+                    <div class="error-message" id="errorMessage"></div>
+                </div>
+            `;
+            
+            resultsContent.innerHTML = html;
+            emailData = data.email_content;
+        }
+
+        async function sendEscalationEmail() {
+            if (!emailData) {
+                showError('No email data available');
+                return;
+            }
+
+            const button = document.querySelector('.send-email-button');
+            const successMessage = document.getElementById('successMessage');
+            const errorMessage = document.getElementById('errorMessage');
+
+            // Hide previous messages
+            successMessage.style.display = 'none';
+            errorMessage.style.display = 'none';
+
+            // Disable button and show loading
+            button.disabled = true;
+            button.innerHTML = '<span class="loading-spinner"></span> Sending...';
+
+            try {
+                const response = await fetch('/send_email', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(emailData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    successMessage.textContent = `✅ Escalation email sent successfully to ${emailData.to}`;
+                    successMessage.style.display = 'block';
+                    button.innerHTML = '<i class="fas fa-check"></i> Email Sent';
+                } else {
+                    errorMessage.textContent = `❌ Failed to send email: ${result.error}`;
+                    errorMessage.style.display = 'block';
+                    button.disabled = false;
+                    button.innerHTML = '<i class="fas fa-paper-plane"></i> Confirm & Send Escalation Email';
+                }
+
+            } catch (error) {
+                errorMessage.textContent = `❌ Network error: ${error.message}`;
+                errorMessage.style.display = 'block';
+                button.disabled = false;
+                button.innerHTML = '<i class="fas fa-paper-plane"></i> Confirm & Send Escalation Email';
+            }
+        }
+
+        function showLoadingState() {
+            document.getElementById('buttonText').style.display = 'none';
+            document.getElementById('buttonSpinner').style.display = 'inline-block';
+            document.getElementById('processBtn').disabled = true;
+        }
+
+        function hideLoadingState() {
+            document.getElementById('buttonText').style.display = 'inline';
+            document.getElementById('buttonSpinner').style.display = 'none';
+            document.getElementById('processBtn').disabled = false;
+        }
+
+        function clearResults() {
+            document.getElementById('resultsContent').innerHTML = `
+                <div class="result-card">
+                    <h3><i class="fas fa-info-circle"></i> Analysis Results</h3>
+                    <div class="result-item">
+                        <span class="result-label">Status:</span>
+                        <span class="result-value">Processing alert...</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showError(message) {
+            const resultsContent = document.getElementById('resultsContent');
+            resultsContent.innerHTML = `
+                <div class="result-card">
+                    <h3><i class="fas fa-exclamation-triangle"></i> Error</h3>
+                    <div class="result-item">
+                        <span class="result-label">Message:</span>
+                        <span class="result-value">${message}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Allow Ctrl+Enter to process alert
+        document.getElementById('alertInput').addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'Enter') {
+                processAlert();
+            }
+        });
+
+        // Initialize the timeline on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeTimeline();
+        });
+    </script>
+</body>
+</html>
