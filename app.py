@@ -70,7 +70,7 @@ Return ONLY the JSON object above, nothing else.
 
 ANALYST_AGENT_PROMPT = """
 You are an expert Technical Analyst Agent for PSA support. You have been provided with an alert and 3 candidate SOP documents. 
-Your task is to perform a detailed analysis and select the best match.
+Your task is to select the single best SOP that matches the alert.
 
 ALERT TO ANALYZE:
 {alert_text}
@@ -79,18 +79,17 @@ CANDIDATE SOPs:
 {sop_candidates}
 
 INSTRUCTIONS:
-1. Carefully compare the incoming alert against each of the 3 candidate SOPs
-2. Analyze the relevance, accuracy, and applicability of each SOP to the alert
-3. Select the single best SOP that provides the most accurate and relevant guidance
-4. Provide detailed reasoning for your choice
-5. Generate a comprehensive problem statement and step-by-step resolution
+1. Analyze the alert and identify the core problem
+2. Select the single best SOP that directly addresses this problem
+3. Provide concise reasoning for your choice (no comparisons with other SOPs)
+4. Generate a clear problem statement and actionable resolution steps
 
 IMPORTANT: Return ONLY valid JSON, no markdown, no explanations, no additional text.
 
 {{
     "best_sop_id": "sop_X",
-    "reasoning": "Detailed explanation of why this SOP was chosen over the others, including specific comparisons",
-    "problem_statement": "Clear, detailed description of the issue based on the alert and chosen SOP",
+    "reasoning": "Brief explanation of why this SOP is the best match for the alert",
+    "problem_statement": "Clear, concise description of the issue",
     "resolution_summary": "Step-by-step resolution approach with specific actions to take"
 }}
 
@@ -468,8 +467,20 @@ def create_escalation_email_content(alert_text, parsed_entities, analysis, conta
     """Create escalation email content"""
     email_subject = f"PSA Alert Escalation - {parsed_entities.get('module', 'Unknown')} Module - {parsed_entities.get('severity', 'Unknown').upper()}"
     
-    email_body = f"""
-Dear {contact_info['escalation_contact']['name']},
+    # Clean up the reasoning to remove SOP comparisons
+    reasoning = analysis.get('reasoning', 'N/A')
+    if 'SOP' in reasoning and 'best match' in reasoning:
+        # Extract just the relevant part without comparisons
+        lines = reasoning.split('\n')
+        relevant_lines = []
+        for line in lines:
+            if 'SOP' in line and ('best match' in line or 'selected' in line):
+                relevant_lines.append(line.strip())
+                break
+        if relevant_lines:
+            reasoning = relevant_lines[0]
+    
+    email_body = f"""Dear {contact_info['escalation_contact']['name']},
 
 We are escalating the following PSA alert for your immediate review and action:
 
@@ -486,7 +497,7 @@ PARSED INFORMATION:
 TECHNICAL ANALYSIS:
 • Problem Statement: {analysis.get('problem_statement', 'N/A')}
 • Resolution Summary: {analysis.get('resolution_summary', 'N/A')}
-• Analyst Reasoning: {analysis.get('reasoning', 'N/A')}
+• Recommended SOP: {analysis.get('best_sop_id', 'N/A')}
 
 ESCALATION CONTACTS:
 • Primary: {contact_info['primary_contact']['name']} ({contact_info['primary_contact']['email']})
