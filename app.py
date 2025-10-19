@@ -3,6 +3,7 @@ import json
 import smtplib
 import chromadb
 from flask import Flask, render_template, request, jsonify
+from flask_cors import CORS
 from sentence_transformers import SentenceTransformer
 import google.generativeai as genai
 from chromadb.config import Settings
@@ -15,12 +16,14 @@ load_dotenv()
 
 # Initialize Flask app
 app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3002", "http://127.0.0.1:3002"]}})
 
 # Global variables for models and data
 sentence_transformer = None
 chroma_client = None
 collection = None
 contacts_data = None
+case_history_data = None
 
 # Enhanced LLM Prompts for Multi-Agent Architecture
 TRIAGE_AGENT_PROMPT = """
@@ -98,7 +101,7 @@ Return ONLY the JSON object above, nothing else.
 
 def initialize_models():
     """Initialize all required models and load data"""
-    global sentence_transformer, chroma_client, collection, contacts_data
+    global sentence_transformer, chroma_client, collection, contacts_data, case_history_data
     
     try:
         # Initialize SentenceTransformer
@@ -119,6 +122,18 @@ def initialize_models():
         contacts_file = os.path.join(script_dir, "contacts.json")
         with open(contacts_file, 'r', encoding='utf-8') as f:
             contacts_data = json.load(f)
+        
+        # Load case history
+        print("Loading case history...")
+        case_history_file = os.path.join(script_dir, "case_history.json")
+        if os.path.exists(case_history_file):
+            with open(case_history_file, 'r', encoding='utf-8') as f:
+                case_history_data = json.load(f)
+            total_cases = case_history_data.get('metadata', {}).get('total_cases', 0)
+            print(f"✓ Loaded {total_cases} historical cases for analysis")
+        else:
+            print("⚠ Warning: case_history.json not found. Run parse_case_log.py first.")
+            case_history_data = None
         
         # Initialize Gemini
         print("Initializing Gemini API...")
@@ -633,6 +648,128 @@ def send_escalation_email():
             
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/metrics', methods=['GET'])
+def get_metrics():
+    """Get historical case metrics and statistics"""
+    try:
+        if not case_history_data:
+            return jsonify({
+                "error": "Case history not loaded. Run parse_case_log.py first."
+            }), 404
+        
+        # Return statistics
+        response = {
+            "success": True,
+            "metadata": case_history_data.get('metadata', {}),
+            "statistics": case_history_data.get('statistics', {}),
+            "insights": {
+                "top_modules": case_history_data.get('statistics', {}).get('module_distribution', {}),
+                "data_quality": case_history_data.get('statistics', {}).get('data_quality', {}),
+                "total_cases": case_history_data.get('metadata', {}).get('total_cases', 0)
+            }
+        }
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/case_history', methods=['GET', 'POST'])
+def query_case_history():
+    """Query historical cases by module or search term"""
+    try:
+        if not case_history_data:
+            return jsonify({
+                "error": "Case history not loaded. Run parse_case_log.py first."
+            }), 404
+        
+        # Get query parameters
+        if request.method == 'POST':
+            data = request.get_json()
+            module_filter = data.get('module', None)
+            search_term = data.get('search_term', None)
+            limit = data.get('limit', 10)
+        else:
+            module_filter = request.args.get('module', None)
+            search_term = request.args.get('search', None)
+            limit = int(request.args.get('limit', 10))
+        
+        cases = case_history_data.get('cases', [])
+        filtered_cases = []
+        
+        # Filter by module
+        if module_filter:
+            filtered_cases = [c for c in cases if c.get('Module') == module_filter]
+        else:
+            filtered_cases = cases
+        
+        # Filter by search term
+        if search_term:
+            search_term_lower = search_term.lower()
+            filtered_cases = [
+                c for c in filtered_cases
+                if (c.get('Alert / Email', '') and search_term_lower in str(c.get('Alert / Email', '')).lower()) or
+                   (c.get('Problem Statements', '') and search_term_lower in str(c.get('Problem Statements', '')).lower())
+            ]
+        
+        # Limit results
+        filtered_cases = filtered_cases[:limit]
+        
+        return jsonify({
+            "success": True,
+            "total_found": len(filtered_cases),
+            "filters": {
+                "module": module_filter,
+                "search_term": search_term,
+                "limit": limit
+            },
+            "cases": filtered_cases
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/similar_cases', methods=['POST'])
+def find_similar_cases():
+    """Find similar historical cases using AI analysis"""
+    try:
+        if not case_history_data:
+            return jsonify({
+                "error": "Case history not loaded"
+            }), 404
+        
+        data = request.get_json()
+        alert_text = data.get('alert_text', '')
+        module = data.get('module', None)
+        limit = data.get('limit', 5)
+        
+        if not alert_text:
+            return jsonify({"error": "alert_text required"}), 400
+        
+        # Get cases from the same module
+        cases = case_history_data.get('cases', [])
+        if module:
+            cases = [c for c in cases if c.get('Module') == module]
+        
+        # Use AI to find similar cases
+        similar_cases = []
+        for case in cases[:50]:  # Limit to first 50 for performance
+            case_text = f"{case.get('Alert / Email', '')} {case.get('Problem Statements', '')}"
+            if case_text and len(case_text) > 10:
+                similar_cases.append(case)
+        
+        # Return top matches
+        return jsonify({
+            "success": True,
+            "alert_text": alert_text,
+            "module": module,
+            "similar_cases_found": len(similar_cases[:limit]),
+            "cases": similar_cases[:limit]
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     # Initialize models and data
