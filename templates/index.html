@@ -637,6 +637,30 @@
             margin: 1rem 0;
         }
 
+        .email-left-aligned {
+            text-align: left;
+        }
+
+        .thinking-section {
+            background: linear-gradient(135deg, rgba(0, 123, 255, 0.1), rgba(124, 58, 237, 0.1));
+            border: 2px solid rgba(0, 123, 255, 0.3);
+            text-align: left;
+        }
+
+        .thinking-item {
+            margin-bottom: 1rem;
+            padding: 0.5rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 6px;
+            border-left: 3px solid #007bff;
+            text-align: left;
+        }
+
+        .thinking-item strong {
+            color: #007bff;
+            font-weight: 600;
+        }
+
         .send-email-btn {
             background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
             border: none;
@@ -1088,7 +1112,54 @@
         function displayResults(data) {
             const resultsContent = document.getElementById('resultsContent');
             
+            // Prepare thinking process section
+            let thinkingProcess = '';
+            if (data.candidate_sops) {
+                thinkingProcess += '<div class="result-card thinking-section">';
+                thinkingProcess += '<h3><i class="fas fa-lightbulb"></i> AI Thinking Process</h3>';
+                
+                // Show retrieved SOPs
+                if (data.candidate_sops.sops && data.candidate_sops.sops.length > 0) {
+                    thinkingProcess += '<div class="thinking-item">';
+                    thinkingProcess += '<strong>Retrieved SOPs:</strong><br>';
+                    data.candidate_sops.sops.forEach((sop, index) => {
+                        const title = sop.metadata?.title || 'Unknown Title';
+                        const relevance = ((1 - sop.distance) * 100).toFixed(1);
+                        thinkingProcess += `${index + 1}. ${title} (Relevance: ${relevance}%)<br>`;
+                    });
+                    thinkingProcess += '</div>';
+                }
+                
+                // Show retrieved case logs
+                if (data.candidate_sops.case_logs && data.candidate_sops.case_logs.length > 0) {
+                    thinkingProcess += '<div class="thinking-item">';
+                    thinkingProcess += '<strong>Retrieved Case Logs:</strong><br>';
+                    data.candidate_sops.case_logs.forEach((caseLog, index) => {
+                        const problem = caseLog.metadata?.problem_statement || 'Unknown Problem';
+                        const relevance = ((1 - caseLog.distance) * 100).toFixed(1);
+                        thinkingProcess += `${index + 1}. ${problem.substring(0, 100)}... (Relevance: ${relevance}%)<br>`;
+                    });
+                    thinkingProcess += '</div>';
+                }
+                
+                // Show SQL data if available
+                if (data.sql_data && Object.keys(data.sql_data).length > 0) {
+                    thinkingProcess += '<div class="thinking-item">';
+                    thinkingProcess += '<strong>SQL Database Context:</strong><br>';
+                    Object.entries(data.sql_data).forEach(([key, value]) => {
+                        if (value && value.length > 0) {
+                            thinkingProcess += `• ${key.replace('_', ' ').toUpperCase()}: ${value.length} records<br>`;
+                        }
+                    });
+                    thinkingProcess += '</div>';
+                }
+                
+                thinkingProcess += '</div>';
+            }
+            
             const html = `
+                ${thinkingProcess}
+                
                 <div class="result-card">
                     <h3><i class="fas fa-search"></i> Parsed Entities</h3>
                     <div class="result-item">
@@ -1143,7 +1214,7 @@
                         <span class="result-label">Subject:</span>
                         <span class="result-value">${data.email_content.subject}</span>
                     </div>
-                    <div class="email-draft">${data.email_content.body}</div>
+                    <pre class="email-draft email-left-aligned">${data.email_content.body}</pre>
                     <button class="send-email-btn" onclick="sendEscalationEmail()">
                         <i class="fas fa-paper-plane me-2"></i>Confirm & Send Escalation Email
                     </button>

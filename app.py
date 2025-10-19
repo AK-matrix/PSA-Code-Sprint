@@ -9,6 +9,7 @@ from chromadb.config import Settings
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
+from sql_connector import SQLConnector
 
 # Load environment variables
 load_dotenv()
@@ -19,8 +20,9 @@ app = Flask(__name__)
 # Global variables for models and data
 sentence_transformer = None
 chroma_client = None
-collection = None
+collections = {}  # Dictionary to store module-based collections
 contacts_data = None
+sql_connector = None
 
 # Enhanced LLM Prompts for Multi-Agent Architecture
 TRIAGE_AGENT_PROMPT = """
@@ -98,21 +100,38 @@ Return ONLY the JSON object above, nothing else.
 
 def initialize_models():
     """Initialize all required models and load data"""
-    global sentence_transformer, chroma_client, collection, contacts_data
+    global sentence_transformer, chroma_client, collections, contacts_data, sql_connector
     
     try:
         # Initialize SentenceTransformer
         print("Loading SentenceTransformer model...")
         sentence_transformer = SentenceTransformer('all-MiniLM-L6-v2')
         
-        # Initialize ChromaDB
+        # Initialize ChromaDB with module-based collections
         print("Connecting to ChromaDB...")
         script_dir = os.path.dirname(os.path.abspath(__file__))
         chroma_client = chromadb.PersistentClient(
             path=os.path.join(script_dir, "chroma_db"),
             settings=Settings(anonymized_telemetry=False)
         )
-        collection = chroma_client.get_collection("psa_sop_collection")
+        
+        # Load module-based collections
+        modules = ["CNTR", "VSL", "EDI/API", "Infra/SRE", "Container Report", "Container Booking", "IMPORT/EXPORT"]
+        for module in modules:
+            collection_name = f"psa_{module.lower().replace('/', '_').replace(' ', '_')}_collection"
+            try:
+                collection = chroma_client.get_collection(collection_name)
+                collections[module] = collection
+                print(f"Loaded collection: {collection_name}")
+            except Exception as e:
+                print(f"Warning: Could not load collection {collection_name}: {e}")
+        
+        # Initialize SQL Connector
+        print("Initializing SQL connector...")
+        sql_connector = SQLConnector()
+        if not sql_connector.connect():
+            print("Warning: Could not connect to SQL database")
+            sql_connector = None
         
         # Load contacts
         print("Loading contacts data...")
@@ -283,62 +302,166 @@ def fallback_triage_agent(alert_text):
     }
 
 def retrieve_candidate_sops(alert_text, parsed_entities):
-    """Retrieve top 3 most relevant SOPs from ChromaDB"""
+    """Retrieve top 3-4 SOPs and top 4-5 case logs from ChromaDB based on module"""
     try:
+        print("Retrieving candidate documents...")
+        
+        # Get the module from parsed entities
         module = parsed_entities.get('module', 'Unknown')
+        print(f"Searching for module: {module}")
         
-        # Filter by module if possible
-        where_clause = {"module": module} if module != "Unknown" else None
+        # Map module to collection name
+        module_mapping = {
+            'CNTR': 'CNTR',
+            'VSL': 'VSL',
+            'Vessel': 'VSL',  # Map Vessel to VSL collection
+            'EDI/API': 'EDI/API',
+            'Infra/SRE': 'Infra/SRE',
+            'Container Report': 'Container Report',
+            'Container Booking': 'Container Booking',
+            'IMPORT/EXPORT': 'IMPORT/EXPORT'
+        }
         
-        # Perform vector search for top 3 results
-        results = collection.query(
+        target_module = module_mapping.get(module, 'Unknown')
+        
+        if target_module not in collections:
+            print(f"No collection found for module: {target_module}")
+            return {"sops": [], "case_logs": [], "module": "Unknown"}
+        
+        collection = collections[target_module]
+        
+        # Retrieve SOPs (top 3-4)
+        print("Retrieving SOPs...")
+        sop_results = collection.query(
             query_texts=[alert_text],
-            n_results=3,
-            where=where_clause
+            n_results=4,
+            where={"doc_type": "SOP"} if target_module != 'Unknown' else None
         )
         
-        candidate_sops = []
-        if results['documents'] and len(results['documents'][0]) > 0:
-            for i in range(len(results['documents'][0])):
-                candidate_sops.append({
-                    'id': results['ids'][0][i],
-                    'document': results['documents'][0][i],
-                    'metadata': results['metadatas'][0][i],
-                    'distance': results['distances'][0][i]
+        # Retrieve Case Logs (top 4-5)
+        print("Retrieving case logs...")
+        case_log_results = collection.query(
+            query_texts=[alert_text],
+            n_results=5,
+            where={"doc_type": "Case Log"} if target_module != 'Unknown' else None
+        )
+        
+        sops = []
+        if sop_results['documents'] and sop_results['documents'][0]:
+            for i in range(len(sop_results['documents'][0])):
+                sops.append({
+                    'id': sop_results['ids'][0][i],
+                    'document': sop_results['documents'][0][i],
+                    'metadata': sop_results['metadatas'][0][i],
+                    'distance': sop_results['distances'][0][i]
                 })
         
-        return candidate_sops
+        case_logs = []
+        if case_log_results['documents'] and case_log_results['documents'][0]:
+            for i in range(len(case_log_results['documents'][0])):
+                case_logs.append({
+                    'id': case_log_results['ids'][0][i],
+                    'document': case_log_results['documents'][0][i],
+                    'metadata': case_log_results['metadatas'][0][i],
+                    'distance': case_log_results['distances'][0][i]
+                })
         
+        print(f"Found {len(sops)} SOPs and {len(case_logs)} case logs")
+        
+        return {
+            "sops": sops,
+            "case_logs": case_logs,
+            "module": target_module
+        }
+            
     except Exception as e:
-        print(f"Error retrieving candidate SOPs: {e}")
-        return []
+        print(f"Error retrieving documents: {e}")
+        return {"sops": [], "case_logs": [], "module": "Unknown"}
 
-def analyst_agent(alert_text, candidate_sops):
-    """Layer 2: Analyst Agent - Analyze candidates and select best SOP"""
+def analyst_agent(alert_text, candidate_sops, sql_data=None):
+    """Layer 2: Enhanced Analyst Agent - Analyze SOPs, case logs, and SQL data"""
     try:
-        if not candidate_sops:
+        sops = candidate_sops.get('sops', [])
+        case_logs = candidate_sops.get('case_logs', [])
+        
+        if not sops and not case_logs:
             return {
                 "best_sop_id": "none",
-                "reasoning": "No candidate SOPs available for analysis",
-                "problem_statement": "Unable to find relevant SOP for this alert",
-                "resolution_summary": "Manual investigation and escalation required"
+                "reasoning": "No candidate documents available for analysis",
+                "problem_statement": "Unable to analyze the alert due to lack of relevant documentation",
+                "resolution_summary": "Manual review and escalation required"
             }
         
         # Format candidate SOPs for the prompt
         sop_candidates_text = ""
-        for i, sop in enumerate(candidate_sops, 1):
+        for i, sop in enumerate(sops, 1):
             sop_candidates_text += f"\n--- SOP {i} (ID: {sop['id']}) ---\n"
             sop_candidates_text += f"Title: {sop['metadata'].get('title', 'Unknown')}\n"
             sop_candidates_text += f"Module: {sop['metadata'].get('module', 'Unknown')}\n"
             sop_candidates_text += f"Content: {sop['document'][:1000]}...\n"
             sop_candidates_text += f"Relevance Score: {(1 - sop['distance']):.3f}\n"
         
+        # Format case logs for the prompt
+        case_logs_text = ""
+        for i, case_log in enumerate(case_logs, 1):
+            case_logs_text += f"\n--- Case Log {i} (ID: {case_log['id']}) ---\n"
+            case_logs_text += f"Problem: {case_log['metadata'].get('problem_statement', 'Unknown')}\n"
+            case_logs_text += f"Solution: {case_log['metadata'].get('solution', 'Unknown')}\n"
+            case_logs_text += f"Content: {case_log['document'][:1000]}...\n"
+            case_logs_text += f"Relevance Score: {(1 - case_log['distance']):.3f}\n"
+        
+        # Prepare SQL data context
+        sql_context = ""
+        if sql_data:
+            sql_context = f"\n\nSQL DATABASE CONTEXT:\n"
+            if sql_data.get('vessel_data'):
+                sql_context += f"Vessel Data: {len(sql_data['vessel_data'])} records\n"
+            if sql_data.get('container_data'):
+                sql_context += f"Container Data: {len(sql_data['container_data'])} records\n"
+            if sql_data.get('edi_data'):
+                sql_context += f"EDI Data: {len(sql_data['edi_data'])} records\n"
+            if sql_data.get('api_events'):
+                sql_context += f"API Events: {len(sql_data['api_events'])} records\n"
+            if sql_data.get('vessel_advice'):
+                sql_context += f"Vessel Advice: {len(sql_data['vessel_advice'])} records\n"
+        
+        # Create enhanced prompt
+        enhanced_prompt = f"""
+You are an expert Technical Analyst Agent for PSA support. You have been provided with an alert, candidate SOPs, case logs, and SQL database context.
+Your task is to select the single best SOP that matches the alert and provide comprehensive analysis.
+
+ALERT TO ANALYZE:
+{alert_text}
+
+CANDIDATE SOPs:
+{sop_candidates_text}
+
+CASE LOGS (Historical Similar Issues):
+{case_logs_text}
+{sql_context}
+
+INSTRUCTIONS:
+1. Analyze the alert and identify the core problem
+2. Consider both SOPs and case logs to understand the issue
+3. Select the single best SOP that directly addresses this problem
+4. Provide concise reasoning for your choice (no comparisons with other SOPs)
+5. Generate a clear problem statement and actionable resolution steps
+6. Consider SQL database context if relevant
+
+IMPORTANT: Return ONLY valid JSON, no markdown, no explanations, no additional text.
+
+{{
+    "best_sop_id": "sop_X",
+    "reasoning": "Brief explanation of why this SOP is the best match for the alert",
+    "problem_statement": "Clear, concise description of the issue",
+    "resolution_summary": "Step-by-step resolution approach with specific actions to take"
+}}
+
+Return ONLY the JSON object above, nothing else.
+        """
+        
         model = genai.GenerativeModel('gemini-2.5-flash')
-        prompt = ANALYST_AGENT_PROMPT.format(
-            alert_text=alert_text,
-            sop_candidates=sop_candidates_text
-        )
-        response = model.generate_content(prompt)
+        response = model.generate_content(enhanced_prompt)
         
         # Extract JSON from response with better parsing
         response_text = response.text.strip()
@@ -574,19 +697,30 @@ def process_alert():
             print(f"ERROR in triage_agent: {e}")
             parsed_entities = {"module": "Unknown", "entities": [], "alert_type": "error", "severity": "medium", "urgency": "medium", "debug_error": str(e)}
         
-        # Step 2: Retrieve candidate SOPs
-        print("Retrieving candidate SOPs...")
+        # Step 2: Retrieve candidate SOPs and case logs
+        print("Retrieving candidate SOPs and case logs...")
         candidate_sops = retrieve_candidate_sops(alert_text, parsed_entities)
         
-        # Step 3: Analyst Agent
-        print("Analyst Agent: Analyzing candidates...")
-        analysis = analyst_agent(alert_text, candidate_sops)
+        # Step 3: Extract SQL data
+        print("Extracting SQL data...")
+        sql_data = {}
+        if sql_connector:
+            try:
+                sql_data = sql_connector.extract_relevant_data(parsed_entities)
+                print(f"Extracted SQL data: {len(sql_data)} categories")
+            except Exception as e:
+                print(f"Error extracting SQL data: {e}")
+                sql_data = {}
         
-        # Step 4: Get escalation contact
+        # Step 4: Enhanced Analyst Agent
+        print("Enhanced Analyst Agent: Analyzing candidates with SQL data...")
+        analysis = analyst_agent(alert_text, candidate_sops, sql_data)
+        
+        # Step 5: Get escalation contact
         print("Getting escalation contact...")
         contact_info = get_escalation_contact(parsed_entities.get('module', 'Unknown'))
         
-        # Step 5: Create escalation email content
+        # Step 6: Create escalation email content
         print("Creating escalation email...")
         email_subject, email_body = create_escalation_email_content(
             alert_text, parsed_entities, analysis, contact_info
@@ -597,6 +731,7 @@ def process_alert():
             "success": True,
             "parsed_entities": parsed_entities,
             "candidate_sops": candidate_sops,
+            "sql_data": sql_data,
             "analysis": analysis,
             "escalation_contact": contact_info,
             "email_content": {
