@@ -1,0 +1,25 @@
+# Development Dockerfile for PSA System Frontend
+FROM node:18-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies (including dev dependencies)
+RUN npm install
+
+# Copy source code
+COPY . .
+
+# Expose port
+EXPOSE 3000
+
+# Set environment variables
+ENV NODE_ENV=development \
+    PORT=3000 \
+    NEXT_TELEMETRY_DISABLED=1
+
+# Start development server
+CMD ["npm", "run", "dev"]

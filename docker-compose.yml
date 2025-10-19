@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  # Backend Service
+  backend:
+    build: .
+    container_name: psa-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - FLASK_DEBUG=False
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - SENDER_EMAIL=${SENDER_EMAIL}
+      - EMAIL_APP_PASSWORD=${EMAIL_APP_PASSWORD}
+      - DATABASE_URL=sqlite:///psa_incidents.db
+    volumes:
+      - ./chroma_db:/app/chroma_db
+      - ./Application Logs:/app/Application Logs
+      - ./Database:/app/Database
+      - ./Case Log.xlsx:/app/Case Log.xlsx
+      - ./contacts.json:/app/contacts.json
+      - ./knowledge_base.json:/app/knowledge_base.json
+      - ./psa_incidents.db:/app/psa_incidents.db
+    networks:
+      - psa-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend Service
+  frontend:
+    build: ./frontend
+    container_name: psa-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://localhost:5000
+      - NEXT_TELEMETRY_DISABLED=1
+    depends_on:
+      - backend
+    networks:
+      - psa-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Redis for caching (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: psa-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - psa-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  # Nginx reverse proxy (optional)
+  nginx:
+    image: nginx:alpine
+    container_name: psa-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - psa-network
+    restart: unless-stopped
+
+networks:
+  psa-network:
+    driver: bridge
+
+volumes:
+  redis_data:
+    driver: local

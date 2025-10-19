@@ -1,13 +1,12 @@
 python-docx
-google-generativeai
 chromadb
 sentence-transformers
 Flask
 flask-cors
 python-dotenv
-pymysql
 openai
-anthropic
-groq
-resend
 pandas
+langgraph
+langchain
+langchain-openai
+typing-extensions

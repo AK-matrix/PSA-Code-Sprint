@@ -286,9 +286,9 @@ export default function SimulationPage() {
         alert_text: `Log Simulation Analysis for ${result.file}`,
         parsed_entities: result.triage_analysis,
         analysis: {
-          best_sop_id: result.analyst_analysis?.best_sop_id || 'none',
-          reasoning: result.analyst_analysis?.reasoning || 'Not available',
-          problem_statement: result.analyst_analysis?.problem_statement || 'Not available',
+        best_sop_id: result.analyst_analysis?.selected_sop || 'none',
+        reasoning: result.analyst_analysis?.root_cause || 'Not available',
+        problem_statement: result.analyst_analysis?.root_cause || 'Not available',
           resolution_summary: result.analyst_analysis?.resolution_summary || 'Not available'
         },
         escalation_contact: result.escalation_contact || {
@@ -321,9 +321,9 @@ export default function SimulationPage() {
         alert_text: `Log Simulation Analysis for ${result.file}`,
         parsed_entities: result.triage_analysis,
         analysis: {
-          best_sop_id: result.analyst_analysis?.best_sop_id || 'none',
-          reasoning: result.analyst_analysis?.reasoning || 'Not available',
-          problem_statement: result.analyst_analysis?.problem_statement || 'Not available',
+        best_sop_id: result.analyst_analysis?.selected_sop || 'none',
+        reasoning: result.analyst_analysis?.root_cause || 'Not available',
+        problem_statement: result.analyst_analysis?.root_cause || 'Not available',
           resolution_summary: result.analyst_analysis?.resolution_summary || 'Not available'
         },
         escalation_contact: result.escalation_contact || {
@@ -546,7 +546,7 @@ export default function SimulationPage() {
                           <strong>Resolution Summary:</strong> {result.analyst_analysis.resolution_summary || 'Not available'}
                         </p>
                         <p className="text-sm text-gray-700">
-                          <strong>Selected SOP:</strong> {result.analyst_analysis?.best_sop_name || result.analyst_analysis?.best_sop_id || 'None'}
+                          <strong>Selected SOP:</strong> {result.analyst_analysis?.selected_sop || result.analyst_analysis?.best_sop_id || 'None'}
                         </p>
                       </div>
                     </div>
