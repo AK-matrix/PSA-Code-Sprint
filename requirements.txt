@@ -3,7 +3,4 @@ google-generativeai
 chromadb
 sentence-transformers
 Flask
-flask-cors
 python-dotenv
-pandas
-openpyxl

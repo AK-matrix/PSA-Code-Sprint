@@ -1,7 +1,7 @@
 "use client";
 
-import { PSADashboard } from "@/components/psa-dashboard";
+import { MinimalistDashboard } from "@/components/minimalist-dashboard";
 
 export default function Home() {
-  return <PSADashboard />;
+  return <MinimalistDashboard />;
 }
