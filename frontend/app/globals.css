@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+/* Suppress hydration warnings for browser extension attributes */
+[data-bis_skin_checked],
+[bis_skin_checked] {
+  /* Ignore browser extension attributes */
+}
+
+/* Hide browser extension attributes from hydration checks */
+div[bis_skin_checked],
+input[bis_skin_checked],
+form[bis_skin_checked] {
+  /* Suppress hydration warnings for browser extension attributes */
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;

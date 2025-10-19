@@ -39,9 +39,9 @@ class AIClient:
         
         if self.provider == "gemini":
             import google.generativeai as genai
-            api_key = os.getenv("GEMINI_API_KEY")
+            api_key = os.getenv("GOOGLE_API_KEY")
             if not api_key:
-                raise ValueError("GEMINI_API_KEY not found in environment variables")
+                raise ValueError("GOOGLE_API_KEY not found in environment variables")
             genai.configure(api_key=api_key)
             self.client = genai.GenerativeModel(self.model)
             
@@ -105,10 +105,10 @@ def create_ai_client(settings: Optional[Dict[str, Any]] = None) -> AIClient:
             api_key=None  # Always use environment variables
         )
     else:
-        # Use default Gemini from environment
+        # Use default OpenAI from environment
         return AIClient(
-            provider="gemini",
-            model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash-exp"),
+            provider="openai",
+            model=os.getenv("OPENAI_MODEL", "gpt-4o"),
             api_key=None  # Always use environment variables
         )
 

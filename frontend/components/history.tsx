@@ -197,7 +197,7 @@ export function History() {
 
                               <div>
                                 <h4 className="font-semibold mb-2">Selected SOP</h4>
-                                <Badge>{selectedItem.result.analysis.best_sop_id}</Badge>
+                                <Badge>{selectedItem.result.analysis.best_sop_name || selectedItem.result.analysis.best_sop_id}</Badge>
                               </div>
                             </div>
                           )}

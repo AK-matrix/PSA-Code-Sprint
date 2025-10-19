@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useHydration } from "@/hooks/use-hydration";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,12 +14,14 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  Ship
+  Ship,
+  Activity
 } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Process Alert", href: "/process", icon: AlertCircle },
+  { name: "Log Simulation", href: "/simulation", icon: Activity },
   { name: "History", href: "/history", icon: History },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
   { name: "Settings", href: "/settings", icon: Settings },
@@ -26,7 +29,26 @@ const navigation = [
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
+  const isHydrated = useHydration();
   const pathname = usePathname();
+
+  // Prevent hydration mismatch
+  if (!isHydrated) {
+    return (
+      <div className="relative h-screen bg-white border-r border-gray-200 w-64 flex flex-col">
+        <div className="h-16 flex items-center justify-center px-4 border-b border-gray-200">
+          <div className="bg-blue-600 p-1.5 rounded">
+            <Ship className="h-5 w-5 text-white" />
+          </div>
+        </div>
+        <div className="flex-1 px-3 py-4 space-y-1">
+          <div className="h-10 bg-gray-100 rounded-lg animate-pulse"></div>
+          <div className="h-10 bg-gray-100 rounded-lg animate-pulse"></div>
+          <div className="h-10 bg-gray-100 rounded-lg animate-pulse"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -34,6 +56,7 @@ export function Sidebar() {
         "relative h-screen bg-white border-r border-gray-200 transition-all duration-300 ease-in-out flex flex-col",
         collapsed ? "w-16" : "w-64"
       )}
+      suppressHydrationWarning
     >
       {/* Logo Header */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200">

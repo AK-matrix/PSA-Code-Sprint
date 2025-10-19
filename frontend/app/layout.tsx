@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { BrowserExtensionHandler } from "@/components/browser-extension-handler";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,10 +25,55 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="light">
+    <html lang="en" className="light" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                'use strict';
+                function removeExtensionAttributes() {
+                  const attributes = ['bis_skin_checked', 'data-bis_skin_checked'];
+                  attributes.forEach(attr => {
+                    const elements = document.querySelectorAll('[' + attr + ']');
+                    elements.forEach(element => {
+                      element.removeAttribute(attr);
+                    });
+                  });
+                }
+                removeExtensionAttributes();
+                const observer = new MutationObserver(function(mutations) {
+                  mutations.forEach(function(mutation) {
+                    if (mutation.type === 'attributes' && mutation.attributeName && mutation.attributeName.includes('bis_skin_checked')) {
+                      mutation.target.removeAttribute(mutation.attributeName);
+                    }
+                  });
+                });
+                if (document.readyState === 'loading') {
+                  document.addEventListener('DOMContentLoaded', function() {
+                    observer.observe(document.body, {
+                      attributes: true,
+                      attributeFilter: ['bis_skin_checked', 'data-bis_skin_checked'],
+                      subtree: true
+                    });
+                  });
+                } else {
+                  observer.observe(document.body, {
+                    attributes: true,
+                    attributeFilter: ['bis_skin_checked', 'data-bis_skin_checked'],
+                    subtree: true
+                  });
+                }
+              })();
+            `,
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50`}
+        suppressHydrationWarning
       >
+        <BrowserExtensionHandler />
         {children}
         <Toaster 
           position="bottom-right"
