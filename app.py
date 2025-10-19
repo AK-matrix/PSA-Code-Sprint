@@ -11,9 +11,13 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
 from sql_connector import SQLConnector
+from database import IncidentDatabase
 
 # Load environment variables
 load_dotenv()
+
+# Initialize database
+db = IncidentDatabase()
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -734,9 +738,29 @@ def process_alert():
             alert_text, parsed_entities, analysis, contact_info
         )
         
+        # Step 7: Store incident in database
+        print("Storing incident in database...")
+        try:
+            case_id = db.store_incident(
+                alert_text=alert_text,
+                parsed_entities=parsed_entities,
+                analysis=analysis,
+                candidate_sops=candidate_sops,
+                email_content={
+                    "to": contact_info['escalation_contact']['email'],
+                    "subject": email_subject,
+                    "body": email_body
+                }
+            )
+            print(f"Incident stored with case_id: {case_id}")
+        except Exception as e:
+            print(f"Error storing incident: {e}")
+            case_id = None
+        
         # Return comprehensive response
         response = {
             "success": True,
+            "case_id": case_id,
             "parsed_entities": parsed_entities,
             "candidate_sops": candidate_sops,
             "sql_data": sql_data,
@@ -776,6 +800,179 @@ def send_escalation_email():
             
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+# ============= NEW DATABASE API ENDPOINTS =============
+
+@app.route('/history', methods=['GET'])
+def get_history():
+    """Get incident history with optional filters"""
+    try:
+        limit = request.args.get('limit', 100, type=int)
+        offset = request.args.get('offset', 0, type=int)
+        module = request.args.get('module', None)
+        severity = request.args.get('severity', None)
+        
+        incidents = db.get_all_incidents(
+            limit=limit,
+            offset=offset,
+            module=module,
+            severity=severity
+        )
+        
+        return jsonify({
+            "success": True,
+            "total": len(incidents),
+            "incidents": incidents
+        })
+    except Exception as e:
+        print(f"Error getting history: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/history/<case_id>', methods=['GET'])
+def get_incident(case_id):
+    """Get a specific incident by case ID"""
+    try:
+        incident = db.get_incident_by_id(case_id)
+        
+        if incident:
+            return jsonify({
+                "success": True,
+                "incident": incident
+            })
+        else:
+            return jsonify({"error": "Incident not found"}), 404
+    except Exception as e:
+        print(f"Error getting incident: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/analytics', methods=['GET'])
+def get_analytics():
+    """Get system analytics and metrics"""
+    try:
+        analytics = db.get_analytics()
+        return jsonify({
+            "success": True,
+            "analytics": analytics
+        })
+    except Exception as e:
+        print(f"Error getting analytics: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/search', methods=['GET'])
+def search_incidents():
+    """Search incidents by query"""
+    try:
+        query = request.args.get('q', '')
+        limit = request.args.get('limit', 20, type=int)
+        
+        if not query:
+            return jsonify({"error": "Query parameter 'q' is required"}), 400
+        
+        results = db.search_incidents(query, limit)
+        
+        return jsonify({
+            "success": True,
+            "query": query,
+            "total": len(results),
+            "results": results
+        })
+    except Exception as e:
+        print(f"Error searching incidents: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/similar/<case_id>', methods=['GET'])
+def get_similar_incidents(case_id):
+    """Get similar incidents to a specific case"""
+    try:
+        incident = db.get_incident_by_id(case_id)
+        
+        if not incident:
+            return jsonify({"error": "Incident not found"}), 404
+        
+        similar = db.find_similar_incidents(
+            alert_text=incident['alert_text'],
+            module=incident['module'],
+            limit=5
+        )
+        
+        return jsonify({
+            "success": True,
+            "case_id": case_id,
+            "similar_incidents": similar
+        })
+    except Exception as e:
+        print(f"Error finding similar incidents: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/feedback', methods=['POST'])
+def submit_feedback():
+    """Submit feedback for an incident"""
+    try:
+        data = request.get_json()
+        case_id = data.get('case_id')
+        was_resolved = data.get('was_resolved', False)
+        was_helpful = data.get('was_helpful', False)
+        rating = data.get('rating', None)
+        feedback_text = data.get('feedback_text', None)
+        
+        if not case_id:
+            return jsonify({"error": "case_id is required"}), 400
+        
+        db.submit_feedback(
+            case_id=case_id,
+            was_resolved=was_resolved,
+            was_helpful=was_helpful,
+            rating=rating,
+            feedback_text=feedback_text
+        )
+        
+        return jsonify({
+            "success": True,
+            "message": "Feedback submitted successfully"
+        })
+    except Exception as e:
+        print(f"Error submitting feedback: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/history/<case_id>/status', methods=['PUT'])
+def update_incident_status(case_id):
+    """Update incident status"""
+    try:
+        data = request.get_json()
+        status = data.get('status')
+        
+        if not status:
+            return jsonify({"error": "status is required"}), 400
+        
+        if status not in ['open', 'in_progress', 'resolved', 'closed']:
+            return jsonify({"error": "Invalid status"}), 400
+        
+        db.update_incident_status(case_id, status)
+        
+        return jsonify({
+            "success": True,
+            "message": f"Status updated to {status}"
+        })
+    except Exception as e:
+        print(f"Error updating status: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/history/<case_id>', methods=['DELETE'])
+def delete_incident(case_id):
+    """Delete an incident"""
+    try:
+        success = db.delete_incident(case_id)
+        
+        if success:
+            return jsonify({
+                "success": True,
+                "message": "Incident deleted successfully"
+            })
+        else:
+            return jsonify({"error": "Incident not found"}), 404
+    except Exception as e:
+        print(f"Error deleting incident: {e}")
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     # Initialize models and data

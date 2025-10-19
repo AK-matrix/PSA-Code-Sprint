@@ -1,36 +1,142 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PSA Alert Processing System - Frontend
+
+A professional Next.js dashboard for the PSA (Port System Alert) Multi-Agent RAG Processing System.
+
+## Features
+
+- **Alert Processor**: Submit and process PSA alerts with AI-powered analysis
+- **Workflow Visualization**: Interactive explanation of the multi-agent architecture
+- **Processing History**: View and manage previously processed alerts
+- **Settings Management**: Configure API endpoints, notifications, and preferences
+- **Real-time Processing**: Live progress indicators for alert processing
+- **Email Integration**: Send escalation emails directly from the dashboard
+
+## Technology Stack
+
+- **Next.js 15**: React framework with App Router
+- **TypeScript**: Type-safe development
+- **Tailwind CSS**: Utility-first CSS framework
+- **shadcn/ui**: High-quality UI components
+- **Lucide React**: Beautiful icon library
+- **Sonner**: Toast notifications
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+ installed
+- Backend Flask API running (see parent directory)
+
+### Installation
+
+Dependencies are already installed. If you need to reinstall:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Development
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+# Start the development server
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The application will be available at [http://localhost:3000](http://localhost:3000) (or the next available port).
 
-## Learn More
+### Build for Production
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+# Create production build
+npm run build
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Start production server
+npm start
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Project Structure
 
-## Deploy on Vercel
+```
+frontend/
+├── app/
+│   ├── layout.tsx          # Root layout with metadata
+│   ├── page.tsx            # Main dashboard page
+│   └── globals.css         # Global styles
+├── components/
+│   ├── ui/                 # shadcn/ui components
+│   ├── alert-processor.tsx # Alert processing interface
+│   ├── workflow-explanation.tsx # Workflow documentation
+│   ├── settings.tsx        # Settings management
+│   └── history.tsx         # Processing history
+├── lib/
+│   └── utils.ts            # Utility functions
+└── public/                 # Static assets
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Features Overview
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Alert Processor
+
+- Submit alert text for AI processing
+- Real-time processing progress
+- Comprehensive result display:
+  - Triage results (module, severity, urgency)
+  - Detected entities
+  - Technical analysis
+  - Resolution recommendations
+  - Escalation contacts
+  - Email preview
+
+### Workflow Explanation
+
+- Step-by-step breakdown of the multi-agent system
+- Supported modules documentation
+- Technology stack overview
+
+### History
+
+- View all processed alerts
+- Detailed view for each alert
+- Delete individual items or clear all history
+- Local storage persistence
+
+### Settings
+
+- Configure backend API URL
+- Test connection to backend
+- Manage notification preferences
+- Email configuration status
+- Data management options
+- System information display
+
+## Environment Variables
+
+The `.env.local` file is configured with:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:5000
+```
+
+Update this if your backend runs on a different port.
+
+## Backend Integration
+
+The frontend connects to the Flask backend API with the following endpoints:
+
+- `POST /process_alert`: Process an alert through the multi-agent system
+- `POST /send_email`: Send escalation email
+
+Ensure the backend is running before using the application.
+
+## Browser Support
+
+- Chrome/Edge (latest)
+- Firefox (latest)
+- Safari (latest)
+
+## Contributing
+
+1. Follow the existing code style
+2. Use TypeScript for type safety
+3. Test all features before committing
+4. Keep components modular and reusable
