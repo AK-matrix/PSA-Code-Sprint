@@ -1,4 +1,4 @@
-import mysql.connector
+import pymysql
 import json
 import os
 from typing import Dict, List, Any, Optional
@@ -8,11 +8,11 @@ class SQLConnector:
     SQL Database connector for extracting relevant data based on alert entities.
     Maps alert entities to database fields and extracts relevant records.
     """
-    
+
     def __init__(self):
         self.connection = None
         self.cursor = None
-        
+
     def connect(self):
         """Connect to MySQL database"""
         try:
@@ -22,15 +22,16 @@ class SQLConnector:
                 'user': 'root',
                 'password': '',  # Add password if needed
                 'database': 'appdb',
-                'charset': 'utf8mb4'
+                'charset': 'utf8mb4',
+                'cursorclass': pymysql.cursors.DictCursor
             }
-            
-            self.connection = mysql.connector.connect(**config)
-            self.cursor = self.connection.cursor(dictionary=True)
+
+            self.connection = pymysql.connect(**config)
+            self.cursor = self.connection.cursor()
             print("Successfully connected to MySQL database")
             return True
-            
-        except mysql.connector.Error as e:
+
+        except pymysql.Error as e:
             print(f"Error connecting to MySQL: {e}")
             return False
     

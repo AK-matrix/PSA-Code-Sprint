@@ -3,6 +3,7 @@ import json
 import smtplib
 import chromadb
 from flask import Flask, render_template, request, jsonify
+from flask_cors import CORS
 from sentence_transformers import SentenceTransformer
 import google.generativeai as genai
 from chromadb.config import Settings
@@ -16,6 +17,13 @@ load_dotenv()
 
 # Initialize Flask app
 app = Flask(__name__)
+CORS(app, resources={
+    r"/*": {
+        "origins": "*",
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type"]
+    }
+})
 
 # Global variables for models and data
 sentence_transformer = None
