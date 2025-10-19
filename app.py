@@ -2,6 +2,7 @@ import os
 import json
 import smtplib
 import chromadb
+from datetime import datetime
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 from sentence_transformers import SentenceTransformer
@@ -12,6 +13,8 @@ from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
 from sql_connector import SQLConnector
 from database import IncidentDatabase
+from ai_client import create_ai_client
+from email_service import send_incident_report_email
 
 # Load environment variables
 load_dotenv()
@@ -166,7 +169,7 @@ def initialize_models():
         print(f"Error initializing models: {e}")
         raise e
 
-def triage_agent(alert_text):
+def triage_agent(alert_text, ai_client=None):
     """Layer 1: Triage Agent - Parse alert text to extract entities and module"""
     print("=" * 50)
     print("TRIAGE AGENT CALLED!")
@@ -178,19 +181,20 @@ def triage_agent(alert_text):
     sys.stdout.flush()
     try:
         print(f"TRIAGE AGENT: Processing alert: {alert_text[:100]}...")
-        # First try with the main prompt
-        print("TRIAGE AGENT: Creating Gemini model...")
-        model = genai.GenerativeModel('gemini-2.5-flash')
-        print("TRIAGE AGENT: Model created successfully")
+        # Use provided AI client or create default one
+        if ai_client is None:
+            print("TRIAGE AGENT: Creating default AI client...")
+            ai_client = create_ai_client()
+        print("TRIAGE AGENT: AI client ready")
         prompt = TRIAGE_AGENT_PROMPT.format(alert_text=alert_text)
         print(f"TRIAGE AGENT: Prompt created, length: {len(prompt)}")
-        print(f"TRIAGE AGENT: Calling Gemini API...")
-        response = model.generate_content(prompt)
-        print(f"TRIAGE AGENT: Gemini response received")
+        print(f"TRIAGE AGENT: Calling AI API...")
+        response_text = ai_client.generate_content(prompt)
+        print(f"TRIAGE AGENT: AI response received")
         
         # Extract JSON from response with better parsing
-        response_text = response.text.strip()
-        print(f"Raw Gemini response: {response_text}")
+        response_text = response_text.strip()
+        print(f"Raw AI response: {response_text}")
         
         # Remove ALL markdown code blocks (handle multiple formats)
         response_text = response_text.replace('```json', '').replace('```', '')
@@ -390,9 +394,12 @@ def retrieve_candidate_sops(alert_text, parsed_entities):
         print(f"Error retrieving documents: {e}")
         return {"sops": [], "case_logs": [], "module": "Unknown"}
 
-def analyst_agent(alert_text, candidate_sops, sql_data=None):
+def analyst_agent(alert_text, candidate_sops, sql_data=None, ai_client=None):
     """Layer 2: Enhanced Analyst Agent - Analyze SOPs, case logs, and SQL data"""
     try:
+        # Use provided AI client or create default one
+        if ai_client is None:
+            ai_client = create_ai_client()
         sops = candidate_sops.get('sops', [])
         case_logs = candidate_sops.get('case_logs', [])
         
@@ -472,11 +479,10 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no explanations, no additional t
 Return ONLY the JSON object above, nothing else.
         """
         
-        model = genai.GenerativeModel('gemini-2.5-flash')
-        response = model.generate_content(enhanced_prompt)
+        response_text = ai_client.generate_content(enhanced_prompt)
         
         # Extract JSON from response with better parsing
-        response_text = response.text.strip()
+        response_text = response_text.strip()
         print(f"Raw Analyst response: {response_text}")
         
         # Remove ALL markdown code blocks (handle multiple formats)
@@ -690,20 +696,39 @@ def process_alert():
     """Process alert through the multi-agent RAG pipeline"""
     try:
         print("=== PROCESS ALERT ENDPOINT CALLED ===")
-        # Get alert text from request
+        # Get alert text and AI settings from request
         data = request.get_json()
         print(f"Received data: {data}")
         alert_text = data.get('alert_text', '')
+        ai_settings = data.get('ai_settings')  # Optional AI settings from frontend
         print(f"Alert text: {alert_text}")
+        print(f"AI settings: {ai_settings}")
         
         if not alert_text:
             print("ERROR: No alert text provided")
             return jsonify({"error": "No alert text provided"}), 400
         
+        # Create AI client based on settings (or use default)
+        try:
+            if ai_settings and ai_settings.get('aiProvider'):
+                print(f"Creating AI client for {ai_settings.get('aiProvider')} with model {ai_settings.get('aiModel')}...")
+                # Use environment variables for API keys
+                ai_client = create_ai_client({
+                    "aiProvider": ai_settings.get('aiProvider'),
+                    "aiModel": ai_settings.get('aiModel'),
+                    "apiKey": None  # Will use environment variable
+                })
+            else:
+                print("Using default AI client from environment...")
+                ai_client = create_ai_client()
+        except Exception as e:
+            print(f"ERROR creating AI client: {e}")
+            return jsonify({"error": f"Failed to initialize AI client: {str(e)}"}), 500
+        
         # Step 1: Triage Agent
         print("Triage Agent: Parsing alert...")
         try:
-            parsed_entities = triage_agent(alert_text)
+            parsed_entities = triage_agent(alert_text, ai_client)
             print(f"Parsed entities: {parsed_entities}")
         except Exception as e:
             print(f"ERROR in triage_agent: {e}")
@@ -726,7 +751,7 @@ def process_alert():
         
         # Step 4: Enhanced Analyst Agent
         print("Enhanced Analyst Agent: Analyzing candidates with SQL data...")
-        analysis = analyst_agent(alert_text, candidate_sops, sql_data)
+        analysis = analyst_agent(alert_text, candidate_sops, sql_data, ai_client)
         
         # Step 5: Get escalation contact
         print("Getting escalation contact...")
@@ -799,6 +824,110 @@ def send_escalation_email():
             return jsonify({"success": False, "error": message}), 500
             
     except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/send_incident_report', methods=['POST'])
+def send_incident_report():
+    """Send professional incident report email using Resend"""
+    try:
+        data = request.get_json()
+        recipient_email = data.get('recipient_email')
+        incident_data = data.get('incident_data')
+        
+        if not recipient_email or not incident_data:
+            return jsonify({"error": "Missing required parameters"}), 400
+        
+        # Send email using Resend service
+        result = send_incident_report_email(
+            recipient_email=recipient_email,
+            incident_data=incident_data
+        )
+        
+        if result.get("success"):
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 500
+            
+    except Exception as e:
+        print(f"Error sending incident report: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/history/<case_id>/resolve', methods=['POST'])
+def mark_incident_resolved(case_id):
+    """Mark an incident as resolved and add it to the knowledge base"""
+    try:
+        # Get the incident details from database
+        incident = db.get_incident_by_id(case_id)
+        
+        if not incident:
+            return jsonify({"success": False, "error": "Incident not found"}), 404
+        
+        # Update the incident status to resolved
+        success = db.update_incident_status(case_id, "resolved")
+        
+        if not success:
+            return jsonify({"success": False, "error": "Failed to update incident status"}), 500
+        
+        # Add to knowledge base (ChromaDB) as a case log
+        try:
+            # Create a case log entry for ChromaDB
+            case_log_text = f"""
+Case ID: {incident['case_id']}
+Module: {incident['module']}
+Alert Type: {incident['alert_type']}
+Severity: {incident['severity']}
+Urgency: {incident['urgency']}
+
+Original Alert:
+{incident['alert_text']}
+
+Problem Statement:
+{incident['problem_statement']}
+
+Resolution:
+{incident['resolution_summary']}
+
+SOP Used: {incident['best_sop_id']}
+"""
+            
+            # Generate embedding for the case log
+            embedding = sentence_transformer.encode(case_log_text)
+            
+            # Add to ChromaDB collection for the specific module
+            module = incident['module']
+            if module in collections:
+                collection = collections[module]
+                collection.add(
+                    ids=[f"case_log_{case_id}"],
+                    embeddings=[embedding.tolist()],
+                    metadatas=[{
+                        "doc_type": "case_log",
+                        "case_id": case_id,
+                        "module": incident['module'],
+                        "severity": incident['severity'],
+                        "alert_type": incident['alert_type'],
+                        "sop_id": incident['best_sop_id'],
+                        "resolved_at": datetime.now().isoformat()
+                    }],
+                    documents=[case_log_text]
+                )
+            else:
+                print(f"Warning: No collection found for module {module}")
+            
+            print(f"✅ Added resolved case {case_id} to knowledge base")
+            
+        except Exception as kb_error:
+            print(f"⚠️ Warning: Failed to add to knowledge base: {kb_error}")
+            # Don't fail the request if KB addition fails
+        
+        return jsonify({
+            "success": True,
+            "message": "Incident marked as resolved and added to knowledge base",
+            "case_id": case_id
+        })
+        
+    except Exception as e:
+        print(f"Error marking incident as resolved: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 # ============= NEW DATABASE API ENDPOINTS =============

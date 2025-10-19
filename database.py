@@ -280,6 +280,8 @@ class IncidentDatabase:
             WHERE case_id = ?
         ''', (status, case_id))
         
+        rows_affected = cursor.rowcount
+        
         if status == 'resolved':
             cursor.execute('''
                 UPDATE incidents 
@@ -291,6 +293,8 @@ class IncidentDatabase:
         
         conn.commit()
         conn.close()
+        
+        return rows_affected > 0
     
     def submit_feedback(self, case_id: str, was_resolved: bool, 
                        was_helpful: bool, rating: int = None, 
@@ -396,12 +400,18 @@ class IncidentDatabase:
         
         conn.close()
         
+        # Calculate open and resolved counts
+        open_incidents = status_counts.get('open', 0)
+        resolved_incidents = status_counts.get('resolved', 0) + status_counts.get('closed', 0)
+        
         return {
-            'total_cases': total_cases,
-            'status_counts': status_counts,
-            'avg_resolution_time_minutes': round(avg_resolution_time, 2),
+            'total_incidents': total_cases,
+            'open_incidents': open_incidents,
+            'resolved_incidents': resolved_incidents,
+            'avg_resolution_time': round(avg_resolution_time, 2),
             'module_distribution': module_counts,
             'severity_distribution': severity_counts,
+            'status_distribution': status_counts,
             'top_performing_sops': top_sops,
             'recent_trends': recent_trends
         }

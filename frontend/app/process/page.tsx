@@ -9,8 +9,11 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { Send, Loader2, AlertCircle, CheckCircle2, Mail, Database, Sparkles } from "lucide-react";
+import { Send, Loader2, AlertCircle, CheckCircle2, Mail, Database, Sparkles, FileDown, Download } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { downloadPDF } from "@/lib/pdf-generator";
 
 const EXAMPLE_ALERTS = [
   {
@@ -54,6 +57,9 @@ export default function ProcessPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processedData, setProcessedData] = useState<ProcessedAlert | null>(null);
   const [progress, setProgress] = useState(0);
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
 
   const handleProcessAlert = async () => {
     if (!alertText.trim()) {
@@ -118,6 +124,100 @@ export default function ProcessPage() {
     } catch (error) {
       console.error("Error sending email:", error);
       toast.error("Failed to send email. Please check your email configuration.");
+    }
+  };
+
+  const handleDownloadPDF = () => {
+    if (!processedData) return;
+
+    try {
+      const incidentData = {
+        alert_text: alertText,
+        parsed_entities: processedData.parsed_entities,
+        analysis: processedData.analysis,
+        escalation_contact: processedData.escalation_contact,
+        case_id: processedData.case_id,
+      };
+
+      downloadPDF(incidentData);
+      toast.success("PDF report downloaded successfully!");
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast.error("Failed to generate PDF report.");
+    }
+  };
+
+  const handleSendIncidentReport = async () => {
+    if (!processedData || !recipientEmail.trim()) {
+      toast.error("Please enter a recipient email address");
+      return;
+    }
+
+    setIsSendingEmail(true);
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      
+      const incidentData = {
+        alert_text: alertText,
+        parsed_entities: processedData.parsed_entities,
+        analysis: processedData.analysis,
+        escalation_contact: processedData.escalation_contact,
+        case_id: processedData.case_id,
+      };
+
+      const response = await fetch(`${apiUrl}/send_incident_report`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          recipient_email: recipientEmail,
+          incident_data: incidentData,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to send incident report");
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        toast.success(`Incident report sent to ${recipientEmail}!`);
+        setShowEmailDialog(false);
+        setRecipientEmail("");
+      } else {
+        throw new Error(result.error || "Unknown error");
+      }
+    } catch (error: any) {
+      console.error("Error sending incident report:", error);
+      toast.error(error.message || "Failed to send incident report.");
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  const handleMarkAsResolved = async (caseId: string) => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const response = await fetch(`${apiUrl}/history/${caseId}/resolve`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success("Incident marked as resolved and added to knowledge base! 🎉");
+      } else {
+        toast.error(data.error || "Failed to mark as resolved");
+      }
+    } catch (error) {
+      console.error("Error marking as resolved:", error);
+      toast.error("Failed to mark incident as resolved");
     }
   };
 
@@ -360,6 +460,120 @@ export default function ProcessPage() {
                     <Mail className="mr-2 h-4 w-4" />
                     Send Escalation Email
                   </Button>
+                </CardContent>
+              </Card>
+
+              {/* PDF and Email Report Actions */}
+              <Card className="border-blue-200 bg-blue-50/30">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-blue-900">
+                    <FileDown className="h-5 w-5" />
+                    Export & Share Report
+                  </CardTitle>
+                  <CardDescription>
+                    Download a PDF report or email it to stakeholders
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Button 
+                      onClick={handleDownloadPDF} 
+                      className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      Download PDF Report
+                    </Button>
+                    
+                    <Button 
+                      onClick={() => setShowEmailDialog(!showEmailDialog)} 
+                      className="flex-1 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
+                    >
+                      <Mail className="mr-2 h-4 w-4" />
+                      Email Report
+                    </Button>
+                  </div>
+
+                  {/* Email Dialog */}
+                  {showEmailDialog && (
+                    <div className="bg-white border border-blue-200 rounded-lg p-4 space-y-4 animate-in slide-in-from-top-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="recipientEmail" className="text-sm font-medium">
+                          Recipient Email Address
+                        </Label>
+                        <Input
+                          id="recipientEmail"
+                          type="email"
+                          placeholder="user@example.com"
+                          value={recipientEmail}
+                          onChange={(e) => setRecipientEmail(e.target.value)}
+                          disabled={isSendingEmail}
+                        />
+                        <p className="text-xs text-gray-500">
+                          Email will be sent from psacodesprint@arnavjhajharia.com with this address in CC
+                        </p>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={handleSendIncidentReport}
+                          disabled={isSendingEmail || !recipientEmail.trim()}
+                          className="flex-1"
+                        >
+                          {isSendingEmail ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Sending...
+                            </>
+                          ) : (
+                            <>
+                              <Send className="mr-2 h-4 w-4" />
+                              Send Report
+                            </>
+                          )}
+                        </Button>
+                        
+                        <Button
+                          onClick={() => {
+                            setShowEmailDialog(false);
+                            setRecipientEmail("");
+                          }}
+                          variant="outline"
+                          disabled={isSendingEmail}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Mark as Resolved */}
+              <Card className="border-green-200 bg-green-50/30">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-green-900">
+                    <CheckCircle2 className="h-5 w-5" />
+                    Resolution Status
+                  </CardTitle>
+                  <CardDescription>
+                    Mark this incident as resolved to add it to the knowledge base
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button 
+                    onClick={() => {
+                      if (processedData?.case_id) {
+                        handleMarkAsResolved(processedData.case_id);
+                      }
+                    }}
+                    className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
+                  >
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    Mark as Resolved & Add to Knowledge Base
+                  </Button>
+                  <p className="text-xs text-gray-600 mt-2">
+                    This will update the incident status and add the resolution to the knowledge base for future reference
+                  </p>
                 </CardContent>
               </Card>
             </>

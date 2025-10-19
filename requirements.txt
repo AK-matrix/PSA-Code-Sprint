@@ -6,3 +6,7 @@ Flask
 flask-cors
 python-dotenv
 pymysql
+openai
+anthropic
+groq
+resend

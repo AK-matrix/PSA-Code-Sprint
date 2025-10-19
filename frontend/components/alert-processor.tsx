@@ -8,8 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { Send, Loader2, AlertCircle, CheckCircle2, Mail, Database } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Send, Loader2, AlertCircle, CheckCircle2, Mail, Database, FileDown, Download } from "lucide-react";
 import { toast } from "sonner";
+import { downloadPDF } from "@/lib/pdf-generator";
 
 interface ParsedEntities {
   module: string;
@@ -57,6 +60,9 @@ export function AlertProcessor() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processedData, setProcessedData] = useState<ProcessedAlert | null>(null);
   const [progress, setProgress] = useState(0);
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
 
   const handleProcessAlert = async () => {
     if (!alertText.trim()) {
@@ -71,13 +77,28 @@ export function AlertProcessor() {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
+      // Get AI settings from localStorage
+      const savedSettings = localStorage.getItem("app_settings");
+      let aiSettings = null;
+      if (savedSettings) {
+        const settings = JSON.parse(savedSettings);
+        // Only send provider and model preferences, API keys are on backend
+        aiSettings = {
+          aiProvider: settings.aiProvider || "gemini",
+          aiModel: settings.aiModel || "gemini-2.0-flash-exp"
+        };
+      }
+
       setProgress(20);
       const response = await fetch(`${apiUrl}/process_alert`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ alert_text: alertText }),
+        body: JSON.stringify({ 
+          alert_text: alertText,
+          ai_settings: aiSettings  // Send AI settings if available
+        }),
       });
 
       setProgress(60);
@@ -90,22 +111,36 @@ export function AlertProcessor() {
       setProgress(100);
       setProcessedData(data);
 
-      toast.success("Alert processed successfully!");
+      // Check if toast notifications are enabled
+      const showToasts = savedSettings ? JSON.parse(savedSettings).showToastNotifications !== false : true;
+      if (showToasts) {
+        toast.success("Alert processed successfully!");
+      }
 
-      const historyItem = {
-        timestamp: new Date().toISOString(),
-        alert_text: alertText,
-        result: data,
-      };
+      // Check if auto-save is enabled
+      const autoSave = savedSettings ? JSON.parse(savedSettings).autoSaveHistory !== false : true;
+      if (autoSave) {
+        const historyItem = {
+          timestamp: new Date().toISOString(),
+          alert_text: alertText,
+          result: data,
+        };
 
-      const history = JSON.parse(localStorage.getItem("alert_history") || "[]");
-      history.unshift(historyItem);
-      if (history.length > 50) history.pop();
-      localStorage.setItem("alert_history", JSON.stringify(history));
+        const history = JSON.parse(localStorage.getItem("alert_history") || "[]");
+        history.unshift(historyItem);
+        if (history.length > 50) history.pop();
+        localStorage.setItem("alert_history", JSON.stringify(history));
+      }
 
     } catch (error) {
       console.error("Error processing alert:", error);
-      toast.error("Failed to process alert. Please try again.");
+      
+      // Check if toast notifications are enabled
+      const savedSettings = localStorage.getItem("app_settings");
+      const showToasts = savedSettings ? JSON.parse(savedSettings).showToastNotifications !== false : true;
+      if (showToasts) {
+        toast.error("Failed to process alert. Please try again.");
+      }
     } finally {
       setIsProcessing(false);
       setProgress(0);
@@ -133,6 +168,82 @@ export function AlertProcessor() {
     } catch (error) {
       console.error("Error sending email:", error);
       toast.error("Failed to send email. Please check your email configuration.");
+    }
+  };
+
+  const handleDownloadPDF = () => {
+    if (!processedData) return;
+
+    try {
+      const incidentData = {
+        alert_text: alertText,
+        parsed_entities: processedData.parsed_entities,
+        analysis: processedData.analysis,
+        escalation_contact: processedData.escalation_contact,
+        case_id: (processedData as any).case_id,
+      };
+
+      downloadPDF(incidentData);
+      
+      const showToasts = localStorage.getItem("app_settings");
+      const shouldShowToast = showToasts ? JSON.parse(showToasts).showToastNotifications !== false : true;
+      if (shouldShowToast) {
+        toast.success("PDF report downloaded successfully!");
+      }
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast.error("Failed to generate PDF report.");
+    }
+  };
+
+  const handleSendIncidentReport = async () => {
+    if (!processedData || !recipientEmail.trim()) {
+      toast.error("Please enter a recipient email address");
+      return;
+    }
+
+    setIsSendingEmail(true);
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      
+      const incidentData = {
+        alert_text: alertText,
+        parsed_entities: processedData.parsed_entities,
+        analysis: processedData.analysis,
+        escalation_contact: processedData.escalation_contact,
+        case_id: (processedData as any).case_id,
+      };
+
+      const response = await fetch(`${apiUrl}/send_incident_report`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          recipient_email: recipientEmail,
+          incident_data: incidentData,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to send incident report");
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        toast.success(`Incident report sent to ${recipientEmail}!`);
+        setShowEmailDialog(false);
+        setRecipientEmail("");
+      } else {
+        throw new Error(result.error || "Unknown error");
+      }
+    } catch (error: any) {
+      console.error("Error sending incident report:", error);
+      toast.error(error.message || "Failed to send incident report.");
+    } finally {
+      setIsSendingEmail(false);
     }
   };
 
@@ -342,10 +453,97 @@ export function AlertProcessor() {
                 </div>
               </div>
 
-              <Button onClick={handleSendEmail} className="w-full sm:w-auto">
-                <Mail className="mr-2 h-4 w-4" />
-                Send Escalation Email
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button onClick={handleSendEmail} className="flex-1 sm:flex-initial" variant="outline">
+                  <Mail className="mr-2 h-4 w-4" />
+                  Send Escalation Email
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* PDF and Email Report Actions */}
+          <Card className="border-blue-200 bg-blue-50/30">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-blue-900">
+                <FileDown className="h-5 w-5" />
+                Export & Share Report
+              </CardTitle>
+              <CardDescription>
+                Download a PDF report or email it to stakeholders
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button 
+                  onClick={handleDownloadPDF} 
+                  className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download PDF Report
+                </Button>
+                
+                <Button 
+                  onClick={() => setShowEmailDialog(!showEmailDialog)} 
+                  className="flex-1 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
+                >
+                  <Mail className="mr-2 h-4 w-4" />
+                  Email Report
+                </Button>
+              </div>
+
+              {/* Email Dialog */}
+              {showEmailDialog && (
+                <div className="bg-white border border-blue-200 rounded-lg p-4 space-y-4 animate-in slide-in-from-top-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="recipientEmail" className="text-sm font-medium">
+                      Recipient Email Address
+                    </Label>
+                    <Input
+                      id="recipientEmail"
+                      type="email"
+                      placeholder="user@example.com"
+                      value={recipientEmail}
+                      onChange={(e) => setRecipientEmail(e.target.value)}
+                      disabled={isSendingEmail}
+                    />
+                    <p className="text-xs text-gray-500">
+                      Email will be sent from psacodesprint@arnavjhajharia.com with this address in CC
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleSendIncidentReport}
+                      disabled={isSendingEmail || !recipientEmail.trim()}
+                      className="flex-1"
+                    >
+                      {isSendingEmail ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="mr-2 h-4 w-4" />
+                          Send Report
+                        </>
+                      )}
+                    </Button>
+                    
+                    <Button
+                      onClick={() => {
+                        setShowEmailDialog(false);
+                        setRecipientEmail("");
+                      }}
+                      variant="outline"
+                      disabled={isSendingEmail}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </>
