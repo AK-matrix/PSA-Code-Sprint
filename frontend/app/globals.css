@@ -15,36 +15,120 @@ form[bis_skin_checked] {
 
 @layer base {
   :root {
+    /* PortaBella Light Theme - FAANG Level Design */
     --background: 0 0% 100%;
     --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 240 4.8% 95.9%;
+    
+    /* Primary - Elegant Pink/Purple Gradient */
+    --primary: 320 100% 70%;
+    --primary-foreground: 0 0% 100%;
+    
+    /* Secondary - Soft Blue */
+    --secondary: 210 40% 95%;
     --secondary-foreground: 240 5.9% 10%;
+    
+    /* Muted - Light Gray */
     --muted: 240 4.8% 95.9%;
     --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
+    
+    /* Accent - Soft Purple */
+    --accent: 280 100% 95%;
+    --accent-foreground: 280 100% 20%;
+    
+    /* Status Colors */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --info: 221 83% 53%;
+    --info-foreground: 0 0% 100%;
+    
+    /* UI Elements */
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
+    --ring: 320 100% 70%;
+    --radius: 0.75rem;
+    
+    /* PortaBella Brand Colors */
+    --portabella-pink: 320 100% 70%;
+    --portabella-purple: 280 100% 70%;
+    --portabella-blue: 210 100% 70%;
+    --portabella-green: 142 76% 50%;
+    --portabella-orange: 25 95% 60%;
   }
 
 
   body {
-    /* @apply bg-background text-foreground; */
     font-feature-settings: "rlig" 1, "calt" 1;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    min-height: 100vh;
+  }
+
+  /* PortaBella Custom Styles */
+  .portabella-gradient {
+    background: linear-gradient(135deg, hsl(var(--portabella-pink)) 0%, hsl(var(--portabella-purple)) 100%);
+  }
+  
+  .portabella-card {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  }
+  
+  .portabella-button {
+    background: linear-gradient(135deg, hsl(var(--portabella-pink)) 0%, hsl(var(--portabella-purple)) 100%);
+    border: none;
+    color: white;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  }
+  
+  .portabella-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  }
+  
+  .portabella-sidebar {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  
+  .portabella-header {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.9) 100%);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   }
 
   /* Ensure all text has proper contrast */
   h1, h2, h3, h4, h5, h6, p, span, div, label {
     color: hsl(var(--foreground));
+  }
+  
+  /* Beautiful scrollbars */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, hsl(var(--portabella-pink)) 0%, hsl(var(--portabella-purple)) 100%);
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, hsl(var(--portabella-purple)) 0%, hsl(var(--portabella-pink)) 100%);
   }
 }

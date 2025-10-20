@@ -14,9 +14,9 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  Ship,
   Activity
 } from "lucide-react";
+import { PortaBellaLogo } from "@/components/portabella-logo";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -35,11 +35,9 @@ export function Sidebar() {
   // Prevent hydration mismatch
   if (!isHydrated) {
     return (
-      <div className="relative h-screen bg-white border-r border-gray-200 w-64 flex flex-col">
+      <div className="relative h-screen portabella-sidebar border-r border-gray-200 w-64 flex flex-col">
         <div className="h-16 flex items-center justify-center px-4 border-b border-gray-200">
-          <div className="bg-blue-600 p-1.5 rounded">
-            <Ship className="h-5 w-5 text-white" />
-          </div>
+          <PortaBellaLogo size="md" showText={false} />
         </div>
         <div className="flex-1 px-3 py-4 space-y-1">
           <div className="h-10 bg-gray-100 rounded-lg animate-pulse"></div>
@@ -53,7 +51,7 @@ export function Sidebar() {
   return (
     <div
       className={cn(
-        "relative h-screen bg-white border-r border-gray-200 transition-all duration-300 ease-in-out flex flex-col",
+        "relative h-screen portabella-sidebar border-r border-gray-200 transition-all duration-300 ease-in-out flex flex-col",
         collapsed ? "w-16" : "w-64"
       )}
       suppressHydrationWarning
@@ -61,17 +59,10 @@ export function Sidebar() {
       {/* Logo Header */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200">
         {!collapsed && (
-          <div className="flex items-center gap-2">
-            <div className="bg-blue-600 p-1.5 rounded">
-              <Ship className="h-5 w-5 text-white" />
-            </div>
-            <span className="font-semibold text-gray-900">PSA System</span>
-          </div>
+          <PortaBellaLogo size="md" showText={true} />
         )}
         {collapsed && (
-          <div className="bg-blue-600 p-1.5 rounded mx-auto">
-            <Ship className="h-5 w-5 text-white" />
-          </div>
+          <PortaBellaLogo size="md" showText={false} />
         )}
       </div>
 

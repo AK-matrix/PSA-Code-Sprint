@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { Send, Loader2, AlertCircle, CheckCircle2, Mail, Database, Sparkles, FileDown, Download } from "lucide-react";
+import { Send, Loader2, AlertCircle, CheckCircle2, Mail, Database, Sparkles, FileDown, Download, ExternalLink, Phone, Globe, Users, Settings, Activity } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
@@ -139,8 +139,13 @@ export default function ProcessPage() {
         case_id: processedData.case_id,
       };
 
-      downloadPDF(incidentData);
-      toast.success("PDF report downloaded successfully!");
+      if (typeof downloadPDF === 'function') {
+        downloadPDF(incidentData);
+        toast.success("PDF report downloaded successfully!");
+      } else {
+        console.error("downloadPDF is not a function");
+        toast.error("PDF generation not available");
+      }
     } catch (error) {
       console.error("Error generating PDF:", error);
       toast.error("Failed to generate PDF report.");
@@ -245,6 +250,56 @@ export default function ProcessPage() {
             Submit PSA alerts for AI-powered analysis and recommendations
           </p>
         </div>
+
+        {/* Quick Action Buttons - Always Visible */}
+        <Card className="mb-6 portabella-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-blue-600" />
+              Quick Actions
+            </CardTitle>
+            <CardDescription>
+              Access essential tools and contacts for PSA operations
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <Button 
+                onClick={() => window.open('https://crm.portabella.com', '_blank')}
+                className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800"
+              >
+                <Users className="mr-2 h-4 w-4" />
+                CRM System
+                <ExternalLink className="ml-1 h-3 w-3" />
+              </Button>
+              
+              <Button 
+                onClick={() => window.open('tel:+1-555-PSA-DUTY', '_blank')}
+                className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
+              >
+                <Phone className="mr-2 h-4 w-4" />
+                Call Duty
+              </Button>
+              
+              <Button 
+                onClick={() => window.open('mailto:duty@portabella.com', '_blank')}
+                className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800"
+              >
+                <Mail className="mr-2 h-4 w-4" />
+                Email Service
+              </Button>
+              
+              <Button 
+                onClick={() => window.open('https://portnet.com', '_blank')}
+                className="bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800"
+              >
+                <Globe className="mr-2 h-4 w-4" />
+                Portnet
+                <ExternalLink className="ml-1 h-3 w-3" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="space-y-6">
           <Card>
@@ -456,10 +511,44 @@ export default function ProcessPage() {
                     </div>
                   </div>
 
-                  <Button onClick={handleSendEmail} className="bg-orange-600 hover:bg-orange-700">
-                    <Mail className="mr-2 h-4 w-4" />
-                    Send Escalation Email
-                  </Button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <Button 
+                      onClick={() => window.open('https://crm.portabella.com', '_blank')}
+                      className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800"
+                    >
+                      <Users className="mr-2 h-4 w-4" />
+                      CRM System
+                      <ExternalLink className="ml-1 h-3 w-3" />
+                    </Button>
+                    
+                    {processedData.escalation_contact?.escalation_contact?.phone && (
+                      <Button 
+                        onClick={() => window.open(`tel:${processedData.escalation_contact.escalation_contact.phone}`)}
+                        className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
+                      >
+                        <Phone className="mr-2 h-4 w-4" />
+                        Call Duty
+                      </Button>
+                    )}
+                    
+                    {processedData.escalation_contact?.escalation_contact?.email && (
+                      <Button 
+                        onClick={() => window.open(`mailto:${processedData.escalation_contact.escalation_contact.email}`)}
+                        className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800"
+                      >
+                        <Mail className="mr-2 h-4 w-4" />
+                        Email Service
+                      </Button>
+                    )}
+                    
+                    <Button 
+                      onClick={handleSendEmail} 
+                      className="bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800"
+                    >
+                      <Mail className="mr-2 h-4 w-4" />
+                      Send Alert
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
 

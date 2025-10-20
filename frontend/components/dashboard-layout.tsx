@@ -8,7 +8,7 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50" suppressHydrationWarning>
+    <div className="flex h-screen overflow-hidden" suppressHydrationWarning>
       <Sidebar />
       <main className="flex-1 overflow-y-auto" suppressHydrationWarning>
         {children}

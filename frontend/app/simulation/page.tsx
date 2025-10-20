@@ -24,7 +24,11 @@ import {
   Mail,
   Download,
   FileDown,
-  Loader2
+  Loader2,
+  ExternalLink,
+  Phone,
+  Globe,
+  Users
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -284,22 +288,36 @@ export default function SimulationPage() {
       
       const incidentData = {
         alert_text: `Log Simulation Analysis for ${result.file}`,
-        parsed_entities: result.triage_analysis,
+        parsed_entities: {
+          module: result.triage_analysis?.entities?.[0] || "Unknown",
+          entities: result.triage_analysis?.entities || [],
+          alert_type: "Log Simulation",
+          severity: result.triage_analysis?.severity || "Unknown",
+          urgency: "Medium"
+        },
         analysis: {
-        best_sop_id: result.analyst_analysis?.selected_sop || 'none',
-        reasoning: result.analyst_analysis?.root_cause || 'Not available',
-        problem_statement: result.analyst_analysis?.root_cause || 'Not available',
+          best_sop_id: result.analyst_analysis?.selected_sop || 'none',
+          reasoning: result.analyst_analysis?.root_cause || 'Not available',
+          problem_statement: result.analyst_analysis?.root_cause || 'Not available',
           resolution_summary: result.analyst_analysis?.resolution_summary || 'Not available'
         },
-        escalation_contact: result.escalation_contact || {
-          primary_contact: { name: "", email: "", phone: "" },
-          escalation_contact: { name: "", email: "", phone: "" }
+        escalation_contact: {
+          escalation_contact: {
+            name: result.escalation_contact?.escalation_contact?.name || "No contact available",
+            email: result.escalation_contact?.escalation_contact?.email || "No email available",
+            phone: result.escalation_contact?.escalation_contact?.phone || "No phone available"
+          }
         },
         case_id: `SIM-${Date.now()}`,
       };
       
-      downloadPDF(incidentData);
-      toast.success("PDF report downloaded successfully");
+      if (typeof downloadPDF === 'function') {
+        downloadPDF(incidentData);
+        toast.success("PDF report downloaded successfully");
+      } else {
+        console.error("downloadPDF is not a function");
+        toast.error("PDF generation not available");
+      }
     } catch (error: any) {
       console.error("Failed to generate PDF:", error);
       toast.error(error.message || "Failed to generate PDF report");
@@ -392,6 +410,56 @@ export default function SimulationPage() {
             Simulate processing of Application Logs with Predictive Agent analysis
           </p>
         </div>
+
+        {/* Quick Action Buttons - Always Visible */}
+        <Card className="mb-6 portabella-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-blue-600" />
+              Quick Actions
+            </CardTitle>
+            <CardDescription>
+              Access essential tools and contacts for PSA operations
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <Button 
+                onClick={() => window.open('https://portnet.com', '_blank')}
+                className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800"
+              >
+                <Globe className="mr-2 h-4 w-4" />
+                Portnet
+                <ExternalLink className="ml-1 h-3 w-3" />
+              </Button>
+              
+              <Button 
+                onClick={() => window.open('tel:+1-555-PSA-DUTY', '_blank')}
+                className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
+              >
+                <Phone className="mr-2 h-4 w-4" />
+                Call Duty
+              </Button>
+              
+              <Button 
+                onClick={() => window.open('mailto:duty@portabella.com', '_blank')}
+                className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800"
+              >
+                <Mail className="mr-2 h-4 w-4" />
+                Email Duty
+              </Button>
+              
+              <Button 
+                onClick={() => window.open('https://crm.portabella.com', '_blank')}
+                className="bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800"
+              >
+                <Users className="mr-2 h-4 w-4" />
+                CRM System
+                <ExternalLink className="ml-1 h-3 w-3" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Control Panel */}
         <Card className="mb-6">
@@ -513,7 +581,7 @@ export default function SimulationPage() {
                       </h4>
                       <div className="bg-blue-50 p-3 rounded-lg">
                         <p className="text-sm text-gray-700 mb-2">
-                          <strong>Problem Statement:</strong> {result.analyst_analysis?.problem_statement || 'Not available'}
+                          <strong>Problem Statement:</strong> {result.triage_analysis?.problem_statement || `Errors detected in ${result.file}`}
                         </p>
                         <p className="text-sm text-gray-700 mb-2">
                           <strong>Severity:</strong> 
@@ -540,13 +608,13 @@ export default function SimulationPage() {
                       </h4>
                       <div className="bg-green-50 p-3 rounded-lg">
                         <p className="text-sm text-gray-700 mb-2">
-                          <strong>Root Cause:</strong> {result.analyst_analysis?.reasoning || 'Not available'}
+                          <strong>Root Cause:</strong> {result.analyst_analysis?.root_cause || result.predictive_insight?.predictive_insight || 'Analysis pending'}
                         </p>
                         <p className="text-sm text-gray-700 mb-2">
                           <strong>Resolution Summary:</strong> {result.analyst_analysis.resolution_summary || 'Not available'}
                         </p>
                         <p className="text-sm text-gray-700">
-                          <strong>Selected SOP:</strong> {result.analyst_analysis?.selected_sop || result.analyst_analysis?.best_sop_id || 'None'}
+                          <strong>Selected SOP:</strong> {result.analyst_analysis?.selected_sop || 'None'}
                         </p>
                       </div>
                     </div>
@@ -601,22 +669,63 @@ export default function SimulationPage() {
                     </div>
                   )}
 
-                  {/* Email and PDF Actions */}
+                  {/* Quick Actions */}
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <h4 className="text-sm font-semibold text-blue-600 mb-3 flex items-center gap-2">
+                      <Activity className="h-4 w-4" />
+                      Quick Actions
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
+                      <Button 
+                        onClick={() => window.open('https://portnet.com', '_blank')}
+                        className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800"
+                        size="sm"
+                      >
+                        <Globe className="mr-2 h-4 w-4" />
+                        Portnet
+                        <ExternalLink className="ml-1 h-3 w-3" />
+                      </Button>
+                      
+                      {result.escalation_contact?.escalation_contact?.phone && (
+                        <Button 
+                          onClick={() => window.open(`tel:${result.escalation_contact?.escalation_contact?.phone}`)}
+                          className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
+                          size="sm"
+                        >
+                          <Phone className="mr-2 h-4 w-4" />
+                          Call Duty
+                        </Button>
+                      )}
+                      
+                      {result.escalation_contact?.escalation_contact?.email && (
+                        <Button 
+                          onClick={() => window.open(`mailto:${result.escalation_contact?.escalation_contact?.email}`)}
+                          className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800"
+                          size="sm"
+                        >
+                          <Mail className="mr-2 h-4 w-4" />
+                          Email Duty
+                        </Button>
+                      )}
+                      
+                      <Button 
+                        onClick={() => handleDownloadPDF(result)} 
+                        className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+                        size="sm"
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        PDF Report
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Export & Share Report */}
                   <div className="mt-4 pt-4 border-t border-gray-200">
                     <h4 className="text-sm font-semibold text-blue-600 mb-3 flex items-center gap-2">
                       <FileDown className="h-4 w-4" />
                       Export & Share Report
                     </h4>
                     <div className="flex flex-col sm:flex-row gap-2">
-                      <Button 
-                        onClick={() => handleDownloadPDF(result)} 
-                        className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
-                        size="sm"
-                      >
-                        <Download className="mr-2 h-4 w-4" />
-                        Download PDF
-                      </Button>
-                      
                       <Button 
                         onClick={() => handleSendEmail(result)} 
                         className="flex-1 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800"

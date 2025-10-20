@@ -185,7 +185,7 @@ export function generateIncidentReportPDF(incident: IncidentData): jsPDF {
   );
 
   // ==== SOP INFORMATION ====
-  const sopName = incident.analysis.selected_sop || incident.analysis.best_sop_id;
+  const sopName = incident.analysis.best_sop_id;
   const sopText = `SOP: ${sopName}\n\nReasoning: ${incident.analysis.reasoning}`;
   addBox("📚 Best Matching SOP", sopText, [239, 246, 255]);
 

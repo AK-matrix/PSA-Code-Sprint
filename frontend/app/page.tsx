@@ -58,16 +58,18 @@ export default function Home() {
     <DashboardLayout>
       <div className="p-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600 mt-1">
-            Welcome to the PSA Alert Processing System
+        <div className="mb-8 portabella-header p-6 rounded-xl">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
+            PortaBella Dashboard
+          </h1>
+          <p className="text-gray-600 mt-2 text-lg">
+            Intelligent PSA Alert Processing & Maritime Operations
           </p>
         </div>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card>
+          <Card className="portabella-card">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">
                 Total Incidents
@@ -82,7 +84,7 @@ export default function Home() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="portabella-card">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">
                 Open Cases
@@ -97,7 +99,7 @@ export default function Home() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="portabella-card">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">
                 Resolved
@@ -112,7 +114,7 @@ export default function Home() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="portabella-card">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">
                 Avg. Resolution Time
@@ -131,7 +133,7 @@ export default function Home() {
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Module Distribution */}
-          <Card>
+          <Card className="portabella-card">
             <CardHeader>
               <CardTitle className="text-gray-900">Incidents by Module</CardTitle>
               <CardDescription>Distribution across different modules</CardDescription>
@@ -159,7 +161,7 @@ export default function Home() {
           </Card>
 
           {/* Severity Distribution */}
-          <Card>
+          <Card className="portabella-card">
             <CardHeader>
               <CardTitle className="text-gray-900">Incidents by Severity</CardTitle>
               <CardDescription>Breakdown by severity levels</CardDescription>
@@ -187,7 +189,7 @@ export default function Home() {
         </div>
 
         {/* Quick Start */}
-        <Card>
+        <Card className="portabella-card">
           <CardHeader>
             <CardTitle className="text-gray-900">Quick Start Guide</CardTitle>
             <CardDescription>Get started with the PSA Alert Processing System</CardDescription>
