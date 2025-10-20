@@ -413,6 +413,92 @@ def get_analytics():
             "error": str(e)
         }), 500
 
+@app.route('/simulation/logs', methods=['GET'])
+def get_simulation_logs():
+    """Get available log files for simulation"""
+    try:
+        logs_dir = "Application Logs"
+        if not os.path.exists(logs_dir):
+            return jsonify({"error": "Application Logs directory not found"}), 404
+        
+        log_files = []
+        for filename in os.listdir(logs_dir):
+            if filename.endswith('.log'):
+                file_path = os.path.join(logs_dir, filename)
+                file_size = os.path.getsize(file_path)
+                log_files.append({
+                    "filename": filename,
+                    "size": file_size,
+                    "path": file_path
+                })
+        
+        return jsonify({
+            "success": True,
+            "log_files": log_files
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/simulation/start', methods=['POST'])
+async def start_simulation():
+    """Start log simulation using LangGraph workflow"""
+    try:
+        data = request.get_json()
+        selected_files = data.get('selected_files', [])
+        
+        if not selected_files:
+            return jsonify({"error": "No files selected"}), 400
+        
+        results = []
+        for file_path in selected_files:
+            try:
+                # Read log file content
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    log_content = f.read()
+                
+                # Generate case ID
+                case_id = f"SIM-{datetime.now().strftime('%Y%m%d-%H%M%S')}-{len(results)}"
+                
+                # Process through LangGraph workflow
+                result = await workflow.process_alert(log_content, case_id)
+                
+                # Store result
+                workflow_history[case_id] = result
+                
+                results.append({
+                    "filename": os.path.basename(file_path),
+                    "case_id": case_id,
+                    "result": result
+                })
+                
+            except Exception as e:
+                results.append({
+                    "filename": os.path.basename(file_path),
+                    "error": str(e)
+                })
+        
+        return jsonify({
+            "success": True,
+            "results": results
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/simulation/status', methods=['GET'])
+def get_simulation_status():
+    """Get simulation status"""
+    try:
+        simulation_workflows = {k: v for k, v in workflow_history.items() if k.startswith('SIM-')}
+        
+        return jsonify({
+            "success": True,
+            "simulation_workflows": simulation_workflows,
+            "total": len(simulation_workflows)
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
@@ -433,11 +519,11 @@ def internal_error(error):
     return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == '__main__':
-    print("🚀 Starting PSA LangGraph Flask Application...")
-    print("✅ LangGraph workflow initialized")
-    print("✅ Database connected")
-    print("✅ API endpoints ready")
-    print("\n📊 Available endpoints:")
+    print("[STARTING] PSA LangGraph Flask Application...")
+    print("[OK] LangGraph workflow initialized")
+    print("[OK] Database connected")
+    print("[OK] API endpoints ready")
+    print("\n[ENDPOINTS] Available endpoints:")
     print("  POST /process_alert - Process alert through LangGraph workflow")
     print("  GET  /workflow/<case_id>/status - Get workflow status")
     print("  POST /workflow/<case_id>/approve - Approve workflow")

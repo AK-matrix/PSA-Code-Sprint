@@ -14,7 +14,7 @@ def test_database():
     # Initialize database
     print("\n1. Initializing database...")
     db = IncidentDatabase("test_psa_incidents.db")
-    print("✅ Database initialized")
+    print("[OK] Database initialized")
     
     # Test storing an incident
     print("\n2. Storing test incident...")
@@ -37,35 +37,35 @@ def test_database():
             {"id": "sop_3", "title": "Duplicate Container Resolution"}
         ]
     )
-    print(f"✅ Incident stored with case_id: {case_id}")
+    print(f"[OK] Incident stored with case_id: {case_id}")
     
     # Test retrieving the incident
     print("\n3. Retrieving incident...")
     incident = db.get_incident_by_id(case_id)
     if incident:
-        print(f"✅ Retrieved incident: {incident['case_id']}")
+        print(f"[OK] Retrieved incident: {incident['case_id']}")
         print(f"   Module: {incident['module']}")
         print(f"   Severity: {incident['severity']}")
     else:
-        print("❌ Failed to retrieve incident")
+        print("[ERROR] Failed to retrieve incident")
     
     # Test getting all incidents
     print("\n4. Getting all incidents...")
     all_incidents = db.get_all_incidents(limit=10)
-    print(f"✅ Found {len(all_incidents)} incident(s)")
+    print(f"[OK] Found {len(all_incidents)} incident(s)")
     
     # Test analytics
     print("\n5. Getting analytics...")
     analytics = db.get_analytics()
-    print(f"✅ Analytics retrieved:")
-    print(f"   Total cases: {analytics['total_cases']}")
-    print(f"   Avg resolution time: {analytics['avg_resolution_time_minutes']} min")
+    print(f"[OK] Analytics retrieved:")
+    print(f"   Total cases: {analytics['total_incidents']}")
+    print(f"   Avg resolution time: {analytics['avg_resolution_time']} min")
     print(f"   Module distribution: {json.dumps(analytics['module_distribution'], indent=2)}")
     
     # Test search
     print("\n6. Testing search...")
     results = db.search_incidents("duplicate", limit=5)
-    print(f"✅ Search found {len(results)} result(s)")
+    print(f"[OK] Search found {len(results)} result(s)")
     
     # Test feedback
     print("\n7. Submitting feedback...")
@@ -76,19 +76,19 @@ def test_database():
         rating=5,
         feedback_text="Test feedback - SOP was very helpful"
     )
-    print("✅ Feedback submitted")
+    print("[OK] Feedback submitted")
     
     # Test status update
     print("\n8. Updating status...")
     db.update_incident_status(case_id, "resolved")
-    print("✅ Status updated to resolved")
+    print("[OK] Status updated to resolved")
     
     # Verify status update
     updated_incident = db.get_incident_by_id(case_id)
     print(f"   Status is now: {updated_incident['status']}")
     
     print("\n" + "=" * 60)
-    print("✅ All tests passed!")
+    print("[OK] All tests passed!")
     print("=" * 60)
     print(f"\nTest database created at: test_psa_incidents.db")
     print("You can delete this test database after testing.")

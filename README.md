@@ -67,7 +67,29 @@ graph TD
 
 ### Installation
 
-#### Option 1: Docker (Recommended)
+#### Option 1: Automated Setup (Recommended)
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd psa-system
+
+# Install Python dependencies
+pip install -r requirements.txt
+
+# Run the automated setup script
+python setup.py
+
+# Start the backend
+python app_langgraph.py
+
+# In another terminal, start the frontend
+cd frontend
+npm install
+npm run dev
+```
+
+#### Option 2: Docker (Alternative)
 
 ```bash
 # Clone the repository
@@ -82,7 +104,7 @@ docker-compose up -d
 # Backend: http://localhost:5000
 ```
 
-#### Option 2: Manual Installation
+#### Option 3: Manual Installation
 
 ```bash
 # Clone the repository
@@ -100,6 +122,12 @@ cd ..
 # Set up environment variables
 cp .env.example .env
 # Edit .env with your API keys
+
+# Run individual setup scripts
+python import docx.py
+python parse_case_logs.py
+python ingest.py
+python test_database.py
 
 # Start the backend
 python app_langgraph.py
