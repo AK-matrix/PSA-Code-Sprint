@@ -2,6 +2,7 @@ import os
 import json
 import smtplib
 import chromadb
+import numpy as np
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
@@ -317,53 +318,82 @@ def fallback_triage_agent(alert_text):
         "urgency": urgency
     }
 
+def rerank_case_logs_by_problem_statement(alert_text, case_logs, top_k=5):
+    """
+    Re-rank case_logs by cosine similarity between the alert_text and
+    each case_log's metadata.problem_statement (ONLY).
+    Returns the top_k case logs with an added 'ps_similarity' float.
+    """
+    print("Using reranker")
+    try:
+        global sentence_transformer
+        if sentence_transformer is None:
+            from sentence_transformers import SentenceTransformer
+            sentence_transformer = SentenceTransformer('all-MiniLM-L6-v2')
+
+        # Encode query once (normalized so dot=cosine)
+        q_emb = sentence_transformer.encode(alert_text, normalize_embeddings=True)
+
+        scored = []
+        print('hello')
+        for cl in case_logs:
+            print('hello2')
+            meta = (cl.get('metadata') or {})
+            ps = meta.get('problem_statement') or ''
+            if not ps.strip():
+                continue
+            ps_emb = sentence_transformer.encode(ps.strip(), normalize_embeddings=True)
+            sim = float(np.dot(ps_emb, q_emb))
+            # attach similarity without mutating original in-place
+            print('hello3')
+            cl_scored = dict(cl)
+            cl_scored['ps_similarity'] = sim
+            scored.append(cl_scored)
+
+        scored.sort(key=lambda x: x.get('ps_similarity', 0.0), reverse=True)
+        return scored[:top_k]
+    except Exception as e:
+        # Safety: if anything goes wrong, just return the originals
+        print(f"[PS-RERANK] Skipped problem_statement rerank due to error: {e}")
+        return case_logs[:top_k]
+
 def retrieve_candidate_sops(alert_text, parsed_entities):
-    """Retrieve top 3-4 SOPs and top 4-5 case logs from ChromaDB based on module"""
+    """Retrieve top SOPs and case logs from ChromaDB; case logs are
+    re-ranked ONLY by similarity to metadata.problem_statement."""
     try:
         print("Retrieving candidate documents...")
-        
-        # Get the module from parsed entities
+
         module = parsed_entities.get('module', 'Unknown')
         print(f"Searching for module: {module}")
-        
-        # Map module to collection name
+
         module_mapping = {
             'CNTR': 'CNTR',
             'VSL': 'VSL',
-            'Vessel': 'VSL',  # Map Vessel to VSL collection
+            'Vessel': 'VSL',
             'EDI/API': 'EDI/API',
             'Infra/SRE': 'Infra/SRE',
             'Container Report': 'Container Report',
             'Container Booking': 'Container Booking',
             'IMPORT/EXPORT': 'IMPORT/EXPORT'
         }
-        
         target_module = module_mapping.get(module, 'Unknown')
-        
+
         if target_module not in collections:
             print(f"No collection found for module: {target_module}")
             return {"sops": [], "case_logs": [], "module": "Unknown"}
-        
+
         collection = collections[target_module]
-        
-        # Retrieve SOPs (top 3-4)
+
+        # ---- SOPs (unchanged) ----
         print("Retrieving SOPs...")
         sop_results = collection.query(
             query_texts=[alert_text],
             n_results=4,
             where={"doc_type": "SOP"} if target_module != 'Unknown' else None
         )
-        
-        # Retrieve Case Logs (top 4-5)
-        print("Retrieving case logs...")
-        case_log_results = collection.query(
-            query_texts=[alert_text],
-            n_results=5,
-            where={"doc_type": "Case Log"} if target_module != 'Unknown' else None
-        )
-        
+
         sops = []
-        if sop_results['documents'] and sop_results['documents'][0]:
+        if sop_results.get('documents') and sop_results['documents'][0]:
             for i in range(len(sop_results['documents'][0])):
                 sops.append({
                     'id': sop_results['ids'][0][i],
@@ -371,38 +401,152 @@ def retrieve_candidate_sops(alert_text, parsed_entities):
                     'metadata': sop_results['metadatas'][0][i],
                     'distance': sop_results['distances'][0][i]
                 })
-        
-        case_logs = []
-        if case_log_results['documents'] and case_log_results['documents'][0]:
+
+        # ---- Case logs: fetch a wider set, then re-rank by problem_statement only ----
+        print("Retrieving raw case logs (broad)…")
+        case_log_results = collection.query(
+            query_texts=[alert_text],
+            n_results=50,  # pull more so re-rank has signal
+            where={"doc_type": "Case Log"} if target_module != 'Unknown' else None
+        )
+
+        raw_case_logs = []
+        if case_log_results.get('documents') and case_log_results['documents'][0]:
             for i in range(len(case_log_results['documents'][0])):
-                case_logs.append({
+                raw_case_logs.append({
                     'id': case_log_results['ids'][0][i],
                     'document': case_log_results['documents'][0][i],
                     'metadata': case_log_results['metadatas'][0][i],
                     'distance': case_log_results['distances'][0][i]
                 })
-        
-        print(f"Found {len(sops)} SOPs and {len(case_logs)} case logs")
-        
+
+        # Re-rank by metadata.problem_statement similarity ONLY
+        case_logs = rerank_case_logs_by_problem_statement(alert_text, raw_case_logs, top_k=5)
+
+        # Log the top match timestamp for visibility
+        if case_logs:
+            top_meta = (case_logs[0].get('metadata') or {})
+            ts = top_meta.get('timestamp') or top_meta.get('resolved_at') or 'N/A'
+            ps_preview = (top_meta.get('problem_statement') or '')[:120]
+            sim = case_logs[0].get('ps_similarity', 0.0)
+            print(f"[PS-RERANK] Top problem_statement match @ {ts} | sim={sim:.3f} | '{ps_preview}{'…' if len(ps_preview)==120 else ''}'")
+
+        print(f"Found {len(sops)} SOPs and {len(case_logs)} case logs (PS-only re-ranked)")
         return {
             "sops": sops,
             "case_logs": case_logs,
             "module": target_module
         }
-            
+
     except Exception as e:
         print(f"Error retrieving documents: {e}")
         return {"sops": [], "case_logs": [], "module": "Unknown"}
 
+def query_similar_problem_statements(alert_text, top_k=5):
+    """
+    Query the dedicated problem_statement index and return the top_k rows,
+    including timestamp, solution, sop_reference, etc. from metadata.
+    """
+    try:
+        global chroma_client, sentence_transformer
+
+        if chroma_client is None:
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            chroma_client = chromadb.PersistentClient(
+                path=os.path.join(script_dir, "chroma_db"),
+                settings=Settings(anonymized_telemetry=False)
+            )
+
+        # Ensure model exists
+        if sentence_transformer is None:
+            sentence_transformer = SentenceTransformer("all-MiniLM-L6-v2")
+
+        collection = chroma_client.get_collection("psa_problem_statements_collection")
+
+        # You can query with raw text; Chroma will embed internally if needed.
+        res = collection.query(
+            query_texts=[alert_text],
+            n_results=top_k
+        )
+
+        out = []
+        if res and res.get("documents") and res["documents"][0]:
+            for i in range(len(res["documents"][0])):
+                out.append({
+                    "problem_statement": res["documents"][0][i],
+                    "metadata": res["metadatas"][0][i],
+                    "id": res["ids"][0][i],
+                    "distance": res["distances"][0][i]
+                })
+        return out
+    except Exception as e:
+        print(f"query_similar_problem_statements error: {e}")
+        return []
+
 def analyst_agent(alert_text, candidate_sops, sql_data=None, ai_client=None):
-    """Layer 2: Enhanced Analyst Agent - Analyze SOPs, case logs, and SQL data"""
+    """Layer 2: Enhanced Analyst Agent - Analyze SOPs, case logs, and SQL data.
+
+    Drop-in replacement: maintains existing behavior, but additionally computes
+    similarity against prior case_log problem statements and prints a single
+    log line with the timestamp of the most similar problem statement.
+    It DOES NOT change ranking or prompt order, so upstream code remains stable.
+    """
     try:
         # Use provided AI client or create default one
         if ai_client is None:
             ai_client = create_ai_client()
+
         sops = candidate_sops.get('sops', [])
         case_logs = candidate_sops.get('case_logs', [])
-        
+
+        # ---- NEW: Compute nearest prior problem statement (for logging only) ----
+        try:
+            best_ps_idx = None
+            best_ps_sim = None
+            best_ps_ts = None
+
+            if case_logs:
+                # Lazy-imports to avoid hard failures if packages are missing
+                import numpy as np
+                from sentence_transformers import SentenceTransformer
+                global sentence_transformer
+                if sentence_transformer is None:
+                    sentence_transformer = SentenceTransformer('all-MiniLM-L6-v2')
+
+                # Encode query (alert text)
+                q_emb = sentence_transformer.encode(alert_text, normalize_embeddings=True)
+
+                # Encode only the problem_statement field from each case log's metadata
+                ps_embs = []
+                idx_map = []
+                for i, cl in enumerate(case_logs):
+                    meta = (cl.get('metadata') or {})
+                    ps = meta.get('problem_statement') or ''
+                    if ps.strip():
+                        emb = sentence_transformer.encode(ps.strip(), normalize_embeddings=True)
+                        ps_embs.append(emb)
+                        idx_map.append(i)
+
+                if ps_embs:
+                    ps_matrix = np.vstack(ps_embs)           # shape: [N, D]
+                    sims = ps_matrix @ q_emb                  # cosine (embeddings normalized)
+                    j = int(np.argmax(sims))
+                    best_ps_idx = idx_map[j]
+                    best_ps_sim = float(sims[j])
+
+                    meta = (case_logs[best_ps_idx].get('metadata') or {})
+                    # Prefer explicit timestamp; fall back to resolved_at if present
+                    best_ps_ts = meta.get('timestamp') or meta.get('resolved_at') or 'N/A'
+
+            if best_ps_idx is not None:
+                best_ps = (case_logs[best_ps_idx].get('metadata') or {}).get('problem_statement', '') or ''
+                snippet = (best_ps[:120] + '…') if len(best_ps) > 120 else best_ps
+                print(f"Nearest prior problem statement @ {best_ps_ts} | sim={best_ps_sim:.3f} | '{snippet}'")
+        except Exception as _ps_err:
+            # Safety: never break main path if similarity calc fails
+            pass
+        # ---- END NEW ----
+
         if not sops and not case_logs:
             return {
                 "best_sop_id": "none",
@@ -410,29 +554,33 @@ def analyst_agent(alert_text, candidate_sops, sql_data=None, ai_client=None):
                 "problem_statement": "Unable to analyze the alert due to lack of relevant documentation",
                 "resolution_summary": "Manual review and escalation required"
             }
-        
-        # Format candidate SOPs for the prompt
+
+        # ------- Format candidate SOPs for the prompt (unchanged) -------
         sop_candidates_text = ""
         for i, sop in enumerate(sops, 1):
-            sop_candidates_text += f"\n--- SOP {i} (ID: {sop['id']}) ---\n"
-            sop_candidates_text += f"Title: {sop['metadata'].get('title', 'Unknown')}\n"
-            sop_candidates_text += f"Module: {sop['metadata'].get('module', 'Unknown')}\n"
-            sop_candidates_text += f"Content: {sop['document'][:1000]}...\n"
-            sop_candidates_text += f"Relevance Score: {(1 - sop['distance']):.3f}\n"
-        
-        # Format case logs for the prompt
+            sop_candidates_text += (
+                f"\n--- SOP {i} (ID: {sop['id']}) ---\n"
+                f"Title: {sop['metadata'].get('title', 'Unknown')}\n"
+                f"Module: {sop['metadata'].get('module', 'Unknown')}\n"
+                f"Content: {sop['document'][:1000]}...\n"
+                f"Relevance Score: {(1 - sop['distance']):.3f}\n"
+            )
+
+        # ------- Format case logs for the prompt (unchanged) -------
         case_logs_text = ""
         for i, case_log in enumerate(case_logs, 1):
-            case_logs_text += f"\n--- Case Log {i} (ID: {case_log['id']}) ---\n"
-            case_logs_text += f"Problem: {case_log['metadata'].get('problem_statement', 'Unknown')}\n"
-            case_logs_text += f"Solution: {case_log['metadata'].get('solution', 'Unknown')}\n"
-            case_logs_text += f"Content: {case_log['document'][:1000]}...\n"
-            case_logs_text += f"Relevance Score: {(1 - case_log['distance']):.3f}\n"
-        
+            case_logs_text += (
+                f"\n--- Case Log {i} (ID: {case_log['id']}) ---\n"
+                f"Problem: {case_log['metadata'].get('problem_statement', 'Unknown')}\n"
+                f"Solution: {case_log['metadata'].get('solution', 'Unknown')}\n"
+                f"Content: {case_log['document'][:1000]}...\n"
+                f"Relevance Score: {(1 - case_log['distance']):.3f}\n"
+            )
+
         # Prepare SQL data context
         sql_context = ""
         if sql_data:
-            sql_context = f"\n\nSQL DATABASE CONTEXT:\n"
+            sql_context = "\n\nSQL DATABASE CONTEXT:\n"
             if sql_data.get('vessel_data'):
                 sql_context += f"Vessel Data: {len(sql_data['vessel_data'])} records\n"
             if sql_data.get('container_data'):
@@ -443,7 +591,7 @@ def analyst_agent(alert_text, candidate_sops, sql_data=None, ai_client=None):
                 sql_context += f"API Events: {len(sql_data['api_events'])} records\n"
             if sql_data.get('vessel_advice'):
                 sql_context += f"Vessel Advice: {len(sql_data['vessel_advice'])} records\n"
-        
+
         # Create enhanced prompt
         enhanced_prompt = f"""
 You are an expert Technical Analyst Agent for PSA support. You have been provided with an alert, candidate SOPs, case logs, and SQL database context.
@@ -478,45 +626,42 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no explanations, no additional t
 
 Return ONLY the JSON object above, nothing else.
         """
-        
+
         response_text = ai_client.generate_content(enhanced_prompt)
-        
+
         # Extract JSON from response with better parsing
         response_text = response_text.strip()
         print(f"Raw Analyst response: {response_text}")
-        
+
         # Remove ALL markdown code blocks (handle multiple formats)
-        response_text = response_text.replace('```json', '').replace('```', '')
-        response_text = response_text.strip()
-        
+        response_text = response_text.replace('```json', '').replace('```', '').strip()
+
         # Try to find JSON object boundaries
         start_idx = response_text.find('{')
         end_idx = response_text.rfind('}')
-        
         if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
             response_text = response_text[start_idx:end_idx + 1]
-        
+
         # Clean up whitespace and newlines aggressively
         response_text = response_text.replace('\n', ' ').replace('\r', ' ')
-        response_text = ' '.join(response_text.split())  # Remove extra whitespace
-        
+        response_text = ' '.join(response_text.split())
+
         print(f"Extracted Analyst JSON: {response_text}")
-        
+
         # Try to parse JSON with fallback
         try:
             return json.loads(response_text)
         except json.JSONDecodeError as e:
             print(f"JSON decode error in analyst: {e}")
             # Try to fix common JSON issues
-            response_text = response_text.replace("'", '"')  # Replace single quotes with double quotes
+            response_text = response_text.replace("'", '"')
             try:
                 return json.loads(response_text)
             except json.JSONDecodeError as e2:
                 print(f"Second JSON decode attempt failed: {e2}")
-                # Return default values if JSON parsing completely fails
                 # Use fallback analyst agent
                 return fallback_analyst_agent(alert_text, candidate_sops)
-        
+
     except json.JSONDecodeError as e:
         print(f"JSON decode error: {e}")
         print(f"Response text: {response_text}")
@@ -752,7 +897,39 @@ def process_alert():
         # Step 4: Enhanced Analyst Agent
         print("Enhanced Analyst Agent: Analyzing candidates with SQL data...")
         analysis = analyst_agent(alert_text, candidate_sops, sql_data, ai_client)
-        
+
+        # Step 4.5: Find nearest past problem statements (global problem_statement index)
+        print("Finding nearest past problem statements...")
+        nearest_ps = query_similar_problem_statements(alert_text, top_k=5)
+        print(nearest_ps)
+
+        def _lower_keys(d):
+            return {(k.lower() if isinstance(k, str) else k): v for k, v in (d or {}).items()}
+
+        # Log the timestamp of the single most similar (if available)
+        if nearest_ps:
+            top = nearest_ps[0]
+            meta_raw = top.get("metadata") or {}
+            meta = _lower_keys(meta_raw)
+
+            # try a few common timestamp fields
+            top_ts = (
+                    meta.get("timestamp")
+                    or meta.get("resolved_at")
+                    or meta.get("created_at")
+                    or meta.get("date")
+                    or "N/A"
+            )
+
+            # solution under multiple possible names
+            top_sol = meta.get("solution") or meta.get("resolution") or meta.get("sop") or "N/A"
+
+            top_snippet = top.get("problem_statement", "")[:120]
+            print(f"Most similar problem statement @ {top_ts} | '{top_snippet}'")
+            print(f"[Nearest PS] timestamp={top_ts} | solution={top_sol[:120]}")
+        else:
+            print("No similar problem statements found.")
+
         # Step 5: Get escalation contact
         print("Getting escalation contact...")
         contact_info = get_escalation_contact(parsed_entities.get('module', 'Unknown'))
@@ -790,6 +967,7 @@ def process_alert():
             "candidate_sops": candidate_sops,
             "sql_data": sql_data,
             "analysis": analysis,
+            "nearest_problem_statements": nearest_ps,  # <--- add this
             "escalation_contact": contact_info,
             "email_content": {
                 "to": contact_info['escalation_contact']['email'],
@@ -797,7 +975,7 @@ def process_alert():
                 "body": email_body
             }
         }
-        
+
         return jsonify(response)
         
     except Exception as e:

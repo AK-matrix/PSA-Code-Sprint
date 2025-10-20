@@ -33,6 +33,21 @@ const EXAMPLE_ALERTS = [
   }
 ];
 
+interface NearestPSItem {
+  problem_statement: string;
+  metadata?: {
+    TIMESTAMP?: string;
+    timestamp?: string;
+    Solution?: string;
+    solution?: string;
+    SOP?: string;
+    sop?: string;
+    row_index?: number;
+  };
+  id: string;
+  distance: number;
+}
+
 interface ProcessedAlert {
   case_id: string;
   parsed_entities: {
@@ -50,6 +65,7 @@ interface ProcessedAlert {
   };
   escalation_contact: any;
   email_content: any;
+  nearest_problem_statements?: NearestPSItem[]; // <--- NEW
 }
 
 export default function ProcessPage() {
@@ -77,17 +93,13 @@ export default function ProcessPage() {
       setProgress(20);
       const response = await fetch(`${apiUrl}/process_alert`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ alert_text: alertText }),
       });
 
       setProgress(60);
 
-      if (!response.ok) {
-        throw new Error("Failed to process alert");
-      }
+      if (!response.ok) throw new Error("Failed to process alert");
 
       const data = await response.json();
       setProgress(100);
@@ -110,15 +122,11 @@ export default function ProcessPage() {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
       const response = await fetch(`${apiUrl}/send_email`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(processedData.email_content),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to send email");
-      }
+      if (!response.ok) throw new Error("Failed to send email");
 
       toast.success("Escalation email sent successfully!");
     } catch (error) {
@@ -157,7 +165,7 @@ export default function ProcessPage() {
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
-      
+
       const incidentData = {
         alert_text: alertText,
         parsed_entities: processedData.parsed_entities,
@@ -168,21 +176,16 @@ export default function ProcessPage() {
 
       const response = await fetch(`${apiUrl}/send_incident_report`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           recipient_email: recipientEmail,
           incident_data: incidentData,
         }),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to send incident report");
-      }
+      if (!response.ok) throw new Error("Failed to send incident report");
 
       const result = await response.json();
-      
       if (result.success) {
         toast.success(`Incident report sent to ${recipientEmail}!`);
         setShowEmailDialog(false);
@@ -203,9 +206,7 @@ export default function ProcessPage() {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
       const response = await fetch(`${apiUrl}/history/${caseId}/resolve`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
       });
 
       const data = await response.json();
@@ -301,10 +302,7 @@ export default function ProcessPage() {
                   )}
                 </Button>
                 {alertText && !isProcessing && (
-                  <Button
-                    variant="outline"
-                    onClick={() => setAlertText("")}
-                  >
+                  <Button variant="outline" onClick={() => setAlertText("")}>
                     Clear
                   </Button>
                 )}
@@ -368,7 +366,7 @@ export default function ProcessPage() {
                     </div>
                   </div>
 
-                  {processedData.parsed_entities.entities && processedData.parsed_entities.entities.length > 0 && (
+                  {processedData.parsed_entities.entities?.length > 0 && (
                     <div>
                       <p className="text-sm font-medium text-gray-600 mb-2">Detected Entities</p>
                       <div className="flex flex-wrap gap-2">
@@ -403,11 +401,58 @@ export default function ProcessPage() {
                   <div>
                     <p className="text-sm font-medium text-gray-600 mb-2">Recommended Solution</p>
                     <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                      <p className="text-sm whitespace-pre-wrap text-gray-800">{processedData.analysis.resolution_summary}</p>
+                      <p className="text-sm whitespace-pre-wrap text-gray-800">
+                        {processedData.analysis.resolution_summary}
+                      </p>
                     </div>
                   </div>
 
                   <Separator />
+
+                  {/* NEW: Similar Past Problem Statements table */}
+                  {processedData.nearest_problem_statements &&
+                    processedData.nearest_problem_statements.length > 0 && (
+                      <>
+                        <div>
+                          <p className="text-sm font-medium text-gray-600 mb-2">
+                            Similar Past Problem Statements (most similar first)
+                          </p>
+                          <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                            <table className="min-w-full text-sm">
+                              <thead className="bg-gray-50">
+                                <tr className="text-left text-gray-600">
+                                  <th className="px-3 py-2 font-medium">Timestamp</th>
+                                  <th className="px-3 py-2 font-medium">Nearest Problem Statement</th>
+                                  <th className="px-3 py-2 font-medium">Solution</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-200">
+                                {processedData.nearest_problem_statements.slice(0, 5).map((row, i) => {
+                                  const meta = row.metadata || {};
+                                  const ts = meta.TIMESTAMP || meta.timestamp || "—";
+                                  const sol = meta.Solution || meta.solution || "—";
+                                  return (
+                                    <tr key={row.id || i} className="align-top">
+                                      <td className="px-3 py-2 whitespace-nowrap text-gray-900">
+                                        {ts}
+                                      </td>
+                                      <td className="px-3 py-2 text-gray-800">
+                                        {row.problem_statement}
+                                      </td>
+                                      <td className="px-3 py-2 text-gray-700">
+                                        {sol}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+
+                        <Separator />
+                      </>
+                  )}
 
                   <div>
                     <p className="text-sm font-medium text-gray-600 mb-2">Selected SOP</p>
