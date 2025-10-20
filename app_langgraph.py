@@ -499,15 +499,6 @@ def get_simulation_status():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/health', methods=['GET'])
-def health_check():
-    """Health check endpoint"""
-    return jsonify({
-        "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
-        "active_workflows": len(active_workflows),
-        "total_workflows": len(workflow_history)
-    })
 
 # Error handlers
 @app.errorhandler(404)
