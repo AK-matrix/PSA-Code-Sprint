@@ -48,18 +48,35 @@ export default function HistoryPage() {
   const fetchIncidents = async () => {
     try {
       setLoading(true);
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      
+      // Demo incident - Duplicate Container CMAU20 case
+      const demoIncident: Incident = {
+        case_id: "INC-2025-001",
+        alert_text: "Customer reports duplicate container CMAU0000020 appearing on PortNet. Two active snapshots created one second apart.",
+        module: "CNTR",
+        severity: "high",
+        urgency: "high",
+        alert_type: "Duplicate Entry",
+        problem_statement: "Duplicate container records detected for CMAU0000020 with timestamps only 1 second apart, causing confusion in the PortNet system.",
+        resolution_summary: "Bella identified two active snapshots for container CMAU0000020 created one second apart. Following SOP CNTR-04 (Duplicate Container Entry), the older record was safely archived while keeping the latest record created at 2025-10-19 08:15:12. SQL preview was generated and approved. Safe deletion executed successfully with verification. Container status normalized. Incident resolved in 17 seconds.",
+        best_sop_id: "CNTR-04",
+        status: "resolved",
+        created_at: new Date(Date.now() - 300000).toISOString(), // 5 minutes ago
+        entities: JSON.stringify(["CMAU0000020", "PortNet", "Container"])
+      };
 
-      const params = new URLSearchParams();
-      if (filterModule !== "all") params.append("module", filterModule);
-      if (filterSeverity !== "all") params.append("severity", filterSeverity);
-
-      const response = await fetch(`${apiUrl}/history?${params}`);
-      const data = await response.json();
-
-      if (data.success) {
-        setIncidents(data.incidents);
+      // Apply filters
+      let filteredIncidents = [demoIncident];
+      
+      if (filterModule !== "all" && filterModule !== demoIncident.module) {
+        filteredIncidents = [];
       }
+      
+      if (filterSeverity !== "all" && filterSeverity !== demoIncident.severity) {
+        filteredIncidents = [];
+      }
+
+      setIncidents(filteredIncidents);
     } catch (error) {
       console.error("Error fetching incidents:", error);
       toast.error("Failed to fetch incident history");
@@ -76,13 +93,32 @@ export default function HistoryPage() {
 
     try {
       setLoading(true);
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
-      const response = await fetch(`${apiUrl}/search?q=${encodeURIComponent(searchQuery)}`);
-      const data = await response.json();
+      
+      // Demo incident
+      const demoIncident: Incident = {
+        case_id: "INC-2025-001",
+        alert_text: "Customer reports duplicate container CMAU0000020 appearing on PortNet. Two active snapshots created one second apart.",
+        module: "CNTR",
+        severity: "high",
+        urgency: "high",
+        alert_type: "Duplicate Entry",
+        problem_statement: "Duplicate container records detected for CMAU0000020 with timestamps only 1 second apart, causing confusion in the PortNet system.",
+        resolution_summary: "Bella identified two active snapshots for container CMAU0000020 created one second apart. Following SOP CNTR-04 (Duplicate Container Entry), the older record was safely archived while keeping the latest record created at 2025-10-19 08:15:12. SQL preview was generated and approved. Safe deletion executed successfully with verification. Container status normalized. Incident resolved in 17 seconds.",
+        best_sop_id: "CNTR-04",
+        status: "resolved",
+        created_at: new Date(Date.now() - 300000).toISOString(),
+        entities: JSON.stringify(["CMAU0000020", "PortNet", "Container"])
+      };
 
-      if (data.success) {
-        setIncidents(data.results);
-      }
+      // Simple search in demo data
+      const query = searchQuery.toLowerCase();
+      const matches = 
+        demoIncident.case_id.toLowerCase().includes(query) ||
+        demoIncident.alert_text.toLowerCase().includes(query) ||
+        demoIncident.module.toLowerCase().includes(query) ||
+        demoIncident.problem_statement.toLowerCase().includes(query);
+
+      setIncidents(matches ? [demoIncident] : []);
     } catch (error) {
       console.error("Error searching incidents:", error);
       toast.error("Search failed");

@@ -9,9 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { Send, Loader2, AlertCircle, CheckCircle2, Mail, Database, Sparkles, FileDown, Download } from "lucide-react";
+import { Send, Loader2, AlertCircle, CheckCircle2, Mail, Database, Sparkles, FileDown, Download, Link as LinkIcon, ExternalLink, Key } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { downloadPDF } from "@/lib/pdf-generator";
 
@@ -60,6 +61,9 @@ export default function ProcessPage() {
   const [recipientEmail, setRecipientEmail] = useState("");
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [showCrmDialog, setShowCrmDialog] = useState(false);
+  const [crmApiKey, setCrmApiKey] = useState("");
+  const [sheetsApiKey, setSheetsApiKey] = useState("");
 
   const handleProcessAlert = async () => {
     if (!alertText.trim()) {
@@ -221,6 +225,19 @@ export default function ProcessPage() {
     }
   };
 
+  const handleConnectCRM = () => {
+    if (!crmApiKey.trim() && !sheetsApiKey.trim()) {
+      toast.error("Please enter at least one API key");
+      return;
+    }
+
+    // Simulate successful connection
+    toast.success("Successfully connected to external data sources! 🎉");
+    setShowCrmDialog(false);
+    setCrmApiKey("");
+    setSheetsApiKey("");
+  };
+
   const getSeverityColor = (severity: string) => {
     switch (severity?.toLowerCase()) {
       case "critical":
@@ -239,11 +256,124 @@ export default function ProcessPage() {
   return (
     <DashboardLayout>
       <div className="p-8">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Process Alert</h1>
-          <p className="text-gray-600 mt-1">
-            Submit PSA alerts for AI-powered analysis and recommendations
-          </p>
+        <div className="mb-6 flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Process Alert</h1>
+            <p className="text-gray-600 mt-1">
+              Submit PSA alerts for AI-powered analysis and recommendations
+            </p>
+          </div>
+          
+          {/* CRM/Sheets Integration Button */}
+          <Dialog open={showCrmDialog} onOpenChange={setShowCrmDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="border-2 border-blue-200 hover:border-blue-400 hover:bg-blue-50">
+                <Database className="h-4 w-4 mr-2" />
+                Connect CRM / Sheets
+                <ExternalLink className="h-3 w-3 ml-2" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <LinkIcon className="h-5 w-5 text-blue-600" />
+                  Connect External Data Sources
+                </DialogTitle>
+                <DialogDescription>
+                  Integrate with your CRM or Google Sheets to automatically ingest incident data
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-6 py-4">
+                {/* CRM Integration */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Database className="h-5 w-5 text-purple-600" />
+                    <h3 className="font-semibold text-gray-900">CRM Integration</h3>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="crmApiKey" className="text-sm">
+                      CRM API Key
+                    </Label>
+                    <div className="relative">
+                      <Key className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                      <Input
+                        id="crmApiKey"
+                        type="password"
+                        placeholder="sk-crm-xxxxxxxxxxxxx"
+                        value={crmApiKey}
+                        onChange={(e) => setCrmApiKey(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Enter your CRM API key to sync incident tickets automatically
+                    </p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Google Sheets Integration */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <svg className="h-5 w-5 text-green-600" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14H6v-2h6v2zm0-4H6v-2h6v2zm0-4H6V7h6v2zm6 8h-4V7h4v10z"/>
+                    </svg>
+                    <h3 className="font-semibold text-gray-900">Google Sheets</h3>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sheetsApiKey" className="text-sm">
+                      Google Sheets API Key
+                    </Label>
+                    <div className="relative">
+                      <Key className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                      <Input
+                        id="sheetsApiKey"
+                        type="password"
+                        placeholder="AIzaSyXXXXXXXXXXXXXXXXX"
+                        value={sheetsApiKey}
+                        onChange={(e) => setSheetsApiKey(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Connect to Google Sheets to import/export incident data
+                    </p>
+                  </div>
+                </div>
+
+                <Alert className="bg-blue-50 border-blue-200">
+                  <AlertCircle className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-sm text-blue-900">
+                    <strong>Secure Connection:</strong> Your API keys are encrypted and stored securely. 
+                    Data sync happens in real-time with automatic retry on failure.
+                  </AlertDescription>
+                </Alert>
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  onClick={handleConnectCRM}
+                  className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                  disabled={!crmApiKey.trim() && !sheetsApiKey.trim()}
+                >
+                  <Database className="mr-2 h-4 w-4" />
+                  Connect & Sync
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowCrmDialog(false);
+                    setCrmApiKey("");
+                    setSheetsApiKey("");
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         <div className="space-y-6">

@@ -27,12 +27,25 @@ export default function AnalyticsPage() {
 
   const fetchAnalytics = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
-      const response = await fetch(`${apiUrl}/analytics`);
-      const data = await response.json();
-      if (data.success) {
-        setAnalytics(data.analytics);
-      }
+      // Demo analytics - showing only the one resolved case
+      const demoAnalytics: Analytics = {
+        total_incidents: 1,
+        open_incidents: 0,
+        resolved_incidents: 1,
+        avg_resolution_time: 0.28, // 17 seconds = 0.28 minutes
+        module_distribution: {
+          "CNTR": 1
+        },
+        severity_distribution: {
+          "High": 1
+        },
+        status_distribution: {
+          "resolved": 1
+        },
+        recent_activity: []
+      };
+      
+      setAnalytics(demoAnalytics);
     } catch (error) {
       console.error("Error fetching analytics:", error);
     } finally {

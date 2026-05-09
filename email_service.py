@@ -306,3 +306,6 @@ def generate_email_template(
     
     return html
 
+
+
+

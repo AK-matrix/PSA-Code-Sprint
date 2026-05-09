@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "PSA Alert Processing System",
-  description: "Multi-Agent RAG System for Port System Alert Processing",
+  description: "Porta Dashboard & Bella Chatbot - AI-powered PSA system",
 };
 
 export default function RootLayout({

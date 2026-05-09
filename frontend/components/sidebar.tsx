@@ -24,7 +24,11 @@ const navigation = [
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  headerExtra?: React.ReactNode;
+}
+
+export function Sidebar({ headerExtra }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
 
@@ -51,6 +55,13 @@ export function Sidebar() {
           </div>
         )}
       </div>
+      
+      {/* Header Extra (Toggle) */}
+      {headerExtra && !collapsed && (
+        <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+          {headerExtra}
+        </div>
+      )}
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">

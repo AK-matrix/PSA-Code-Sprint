@@ -401,3 +401,6 @@ severity_colors = {
 
 **Next steps:** Configure `RESEND_API_KEY` and start sending professional incident reports! 🚀
 
+
+
+

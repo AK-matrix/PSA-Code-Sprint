@@ -215,3 +215,6 @@ export function downloadPDF(incident: IncidentData, filename?: string) {
   pdf.save(finalFilename);
 }
 
+
+
+

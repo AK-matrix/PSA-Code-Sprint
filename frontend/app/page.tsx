@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
+import { Switch } from "@/components/ui/switch";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, CheckCircle, Clock, TrendingUp, Activity, Ship } from "lucide-react";
+import { ChatInterface } from "@/components/chat-interface";
 
 interface Analytics {
   total_incidents: number;
@@ -17,21 +19,34 @@ interface Analytics {
 }
 
 export default function Home() {
+  const [isBellaMode, setIsBellaMode] = useState(false);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchAnalytics();
-  }, []);
+    if (!isBellaMode) {
+      fetchAnalytics();
+    }
+  }, [isBellaMode]);
 
   const fetchAnalytics = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
-      const response = await fetch(`${apiUrl}/analytics`);
-      const data = await response.json();
-      if (data.success) {
-        setAnalytics(data.analytics);
-      }
+      // Demo analytics - showing only the one resolved case
+      const demoAnalytics: Analytics = {
+        total_incidents: 1,
+        open_incidents: 0,
+        resolved_incidents: 1,
+        avg_resolution_time: 0.28, // 17 seconds = 0.28 minutes
+        module_distribution: {
+          "CNTR": 1
+        },
+        severity_distribution: {
+          "High": 1
+        },
+        recent_activity: []
+      };
+      
+      setAnalytics(demoAnalytics);
     } catch (error) {
       console.error("Error fetching analytics:", error);
     } finally {
@@ -54,12 +69,60 @@ export default function Home() {
     }
   };
 
+  // Bella Mode - Chatbot Interface
+  if (isBellaMode) {
+    return (
+      <div className="flex flex-col h-screen bg-white">
+        {/* Header with Toggle */}
+        <header className="border-b border-gray-200 px-4 py-3 flex items-center justify-between bg-white">
+          <h1 className="text-xl font-semibold text-gray-900">Bella</h1>
+          <div className="flex items-center gap-3">
+            <span className={`text-sm font-medium ${!isBellaMode ? 'text-blue-600' : 'text-gray-400'}`}>
+              Porta
+            </span>
+            <Switch
+              checked={isBellaMode}
+              onCheckedChange={setIsBellaMode}
+              className="data-[state=checked]:bg-pink-500"
+            />
+            <span className={`text-sm font-medium ${isBellaMode ? 'text-pink-600' : 'text-gray-400'}`}>
+              Bella
+            </span>
+          </div>
+        </header>
+        <ChatInterface />
+      </div>
+    );
+  }
+
+  // Porta Mode - Dashboard
   return (
-    <DashboardLayout>
+    <DashboardLayout 
+      headerExtra={
+        <div className="flex items-center justify-between bg-gradient-to-r from-blue-50 to-pink-50 p-3 rounded-lg">
+          <div className="flex items-center gap-3">
+            <div className="text-sm font-semibold text-gray-700">Switch Mode:</div>
+            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg shadow-sm">
+              <span className={`text-sm font-medium ${!isBellaMode ? 'text-blue-600' : 'text-gray-400'}`}>
+                Porta
+              </span>
+              <Switch
+                checked={isBellaMode}
+                onCheckedChange={setIsBellaMode}
+                className="data-[state=checked]:bg-pink-500"
+              />
+              <span className={`text-sm font-medium ${isBellaMode ? 'text-pink-600' : 'text-gray-400'}`}>
+                Bella
+              </span>
+            </div>
+          </div>
+        </div>
+      }
+    >
       <div className="p-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Porta Dashboard</h1>
           <p className="text-gray-600 mt-1">
             Welcome to the PSA Alert Processing System
           </p>
@@ -208,12 +271,15 @@ export default function Home() {
                 <h3 className="font-semibold text-gray-900 mb-1">View History</h3>
                 <p className="text-sm text-gray-600">Access and review all previously processed incidents</p>
               </div>
-              <div className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-sm transition-all">
-                <div className="bg-purple-50 w-10 h-10 rounded-lg flex items-center justify-center mb-3">
-                  <TrendingUp className="h-5 w-5 text-purple-600" />
+              <div 
+                className="border border-gray-200 rounded-lg p-4 hover:border-pink-300 hover:shadow-sm transition-all cursor-pointer"
+                onClick={() => setIsBellaMode(true)}
+              >
+                <div className="bg-pink-50 w-10 h-10 rounded-lg flex items-center justify-center mb-3">
+                  <TrendingUp className="h-5 w-5 text-pink-600" />
                 </div>
-                <h3 className="font-semibold text-gray-900 mb-1">Analytics</h3>
-                <p className="text-sm text-gray-600">Monitor system performance and track key metrics</p>
+                <h3 className="font-semibold text-gray-900 mb-1">Chat with Bella</h3>
+                <p className="text-sm text-gray-600">Ask questions and get AI-powered assistance</p>
               </div>
             </div>
           </CardContent>
