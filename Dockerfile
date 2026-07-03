@@ -24,4 +24,4 @@ ENV FLASK_ENV=production \
     LOG_LEVEL=INFO \
     PORT=5000
 
-CMD ["python", "-m", "flask", "--app", "app_langgraph", "run", "--host", "0.0.0.0", "--port", "5000"]
+CMD ["python", "-m", "flask", "--app", "backend.app", "run", "--host", "0.0.0.0", "--port", "5000"]

@@ -3,7 +3,7 @@ Test script for database functionality
 Run this to verify database is working correctly
 """
 
-from database import IncidentDatabase
+from backend.database import IncidentDatabase
 import json
 
 def test_database():

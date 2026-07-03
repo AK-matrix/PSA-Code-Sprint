@@ -10,9 +10,8 @@ import json
 from datetime import datetime
 
 # Add the current directory to Python path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from langgraph_workflow import PSALangGraphWorkflow
+from backend.workflow import PSALangGraphWorkflow
 
 def test_hybrid_search():
     """Test the hybrid search functionality"""

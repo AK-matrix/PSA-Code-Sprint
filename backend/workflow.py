@@ -15,7 +15,13 @@ import logging
 import os
 import re
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional, TypedDict
+
+# Resolve paths relative to the project root (two levels up from backend/)
+_PROJECT_ROOT = Path(__file__).parent.parent
+_DATA_DIR = _PROJECT_ROOT / "data"
+_CHROMA_DIR = _PROJECT_ROOT / "chroma_db"
 
 import chromadb
 import pandas as pd
@@ -129,13 +135,12 @@ class PSALangGraphWorkflow:
             raise
 
     def _load_collections(self) -> None:
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        chroma_path = os.path.join(script_dir, "chroma_db")
-        if not os.path.exists(chroma_path):
+        chroma_path = _CHROMA_DIR
+        if not chroma_path.exists():
             logger.warning("ChromaDB directory not found — run ingest.py first")
             return
         try:
-            self.chroma_client = chromadb.PersistentClient(path=chroma_path)
+            self.chroma_client = chromadb.PersistentClient(path=str(chroma_path))
             for col in self.chroma_client.list_collections():
                 self.collections[col.name] = self.chroma_client.get_collection(col.name)
             logger.info("Loaded %d ChromaDB collections", len(self.collections))
@@ -144,13 +149,12 @@ class PSALangGraphWorkflow:
             self.collections = {}
 
     def _load_historical_data(self) -> None:
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        path = os.path.join(script_dir, "Case Log.xlsx")
-        if not os.path.exists(path):
+        path = _DATA_DIR / "Case Log.xlsx"
+        if not path.exists():
             logger.warning("Case Log.xlsx not found — predictive node will use fallback")
             return
         try:
-            self.historical_data = pd.read_excel(path)
+            self.historical_data = pd.read_excel(str(path))
             logger.info("Loaded %d historical cases", len(self.historical_data))
         except Exception:
             logger.exception("Failed to load historical data")

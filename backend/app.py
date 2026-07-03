@@ -18,8 +18,8 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
-from database import IncidentDatabase
-from langgraph_workflow import workflow
+from backend.database import IncidentDatabase
+from backend.workflow import workflow
 
 load_dotenv()
 

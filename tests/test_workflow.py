@@ -11,7 +11,7 @@ This script demonstrates the LangGraph workflow capabilities including:
 import asyncio
 import json
 from datetime import datetime
-from langgraph_workflow import workflow
+from backend.workflow import workflow
 
 async def test_basic_workflow():
     """Test basic workflow execution"""
