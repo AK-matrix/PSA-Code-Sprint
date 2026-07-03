@@ -6,6 +6,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, CheckCircle, Clock, TrendingUp, Activity, Ship } from "lucide-react";
 
+interface RecentActivity {
+  case_id: string;
+  severity: string;
+  module: string;
+  timestamp: string;
+  status: string;
+}
+
 interface Analytics {
   total_incidents: number;
   open_incidents: number;
@@ -13,7 +21,7 @@ interface Analytics {
   avg_resolution_time: number;
   module_distribution: Record<string, number>;
   severity_distribution: Record<string, number>;
-  recent_activity: any[];
+  recent_activity: RecentActivity[];
 }
 
 export default function Home() {
